@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 
@@ -19,8 +20,8 @@ const currentProtocol = window.location.protocol;
 // Maximum time to wait for connection in milliseconds
 const CONNECTION_TIMEOUT = 5000; // 5 seconds timeout
 
-// Always use the direct Supabase URL with port 3000 as the fallback option
-const directSupabaseUrl = 'https://supabase.techlinx.se:3000';
+// Always use the direct Supabase URL as the fallback option
+const directSupabaseUrl = 'https://supabase.techlinx.se:8000';
 
 // Determine the Supabase URL based on configuration
 let supabaseUrl;
