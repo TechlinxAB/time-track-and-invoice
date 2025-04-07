@@ -23,24 +23,28 @@ const Login = () => {
     pageProtocol: string;
     usingProxy: boolean;
     localHost?: string;
+    forceHttpBackend: boolean;
   }>(() => {
     const supabaseConfig = supabase.constructor as any;
     const url = supabaseConfig?.supabaseUrl || "http://localhost:8000";
     const protocol = url.split(':')[0];
     const usingProxy = url === window.location.origin;
     const localHost = localStorage.getItem('supabase_local_ip') || 'localhost';
+    const forceHttpBackend = localStorage.getItem('force_http_backend') === 'true';
     return { 
       url, 
       protocol,
       pageProtocol: window.location.protocol,
       usingProxy,
-      localHost
+      localHost,
+      forceHttpBackend
     };
   });
   
   const hasMixedContentIssue = 
     connectionInfo.pageProtocol === 'https:' && 
-    connectionInfo.protocol === 'http';
+    connectionInfo.protocol === 'http' &&
+    !connectionInfo.forceHttpBackend;
 
   // If user is already logged in, redirect to the dashboard
   if (user) {
@@ -56,6 +60,7 @@ const Login = () => {
       console.log("Starting authentication process...");
       console.log("Using Supabase URL:", connectionInfo.url);
       console.log("Using Proxy:", connectionInfo.usingProxy ? "Yes" : "No");
+      console.log("Force HTTP backend:", connectionInfo.forceHttpBackend ? "Yes" : "No");
       
       let result;
 
@@ -84,7 +89,7 @@ const Login = () => {
         } else if (hasMixedContentIssue) {
           toast({
             title: "Mixed Content Error",
-            description: "HTTPS pages cannot load content from HTTP sources. Try using the same protocol for both.",
+            description: "Try enabling 'HTTP Backend' option below to fix mixed content issues.",
             variant: "destructive"
           });
         } else {
@@ -124,15 +129,17 @@ const Login = () => {
     }
   };
   
-  const handleHttpsToggle = () => {
-    // Store user preference for protocol
-    const currentProtocol = localStorage.getItem('supabase_protocol') || 'http';
-    const newProtocol = currentProtocol === 'http' ? 'https' : 'http';
-    localStorage.setItem('supabase_protocol', newProtocol);
+  const handleHttpBackendToggle = () => {
+    const current = localStorage.getItem('force_http_backend') === 'true';
+    localStorage.setItem('force_http_backend', (!current).toString());
+    
     toast({
-      title: "Protocol Changed",
-      description: `Connection protocol switched to ${newProtocol.toUpperCase()}. Reloading...`,
+      title: "Backend Protocol Changed",
+      description: current 
+        ? "Using same protocol for frontend and backend. Reloading..." 
+        : "Using HTTP backend with HTTPS frontend. Reloading...",
     });
+    
     setTimeout(() => window.location.reload(), 1500);
   };
 
@@ -186,11 +193,12 @@ const Login = () => {
             <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
             <p><strong>Connecting Directly:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
             <p><strong>Local Database Host:</strong> {connectionInfo.localHost}</p>
+            <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
             
             {hasMixedContentIssue && (
               <div className="mt-2 p-2 bg-amber-50 border-l-4 border-amber-400 text-amber-800">
                 <p className="font-semibold">Mixed Content Issue Detected</p>
-                <p>Your HTTPS page cannot load content from HTTP source</p>
+                <p>Try enabling HTTP Backend option below</p>
               </div>
             )}
             
@@ -202,10 +210,10 @@ const Login = () => {
                 Change Local IP
               </button>
               <button 
-                onClick={handleHttpsToggle} 
+                onClick={handleHttpBackendToggle} 
                 className="text-xs text-blue-600 hover:underline"
               >
-                Switch to {localStorage.getItem('supabase_protocol') === 'https' ? 'HTTP' : 'HTTPS'}
+                {connectionInfo.forceHttpBackend ? "Disable HTTP Backend" : "Enable HTTP Backend"}
               </button>
             </div>
           </div>

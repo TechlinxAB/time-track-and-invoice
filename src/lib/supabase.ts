@@ -5,23 +5,30 @@ import { toast } from '@/hooks/use-toast';
 // Determine if we're in production based on hostname
 const isProduction = window.location.hostname !== 'localhost';
 
-// Check if user has specified a custom local IP/host
+// Get local Supabase host if specified
 const localSupabaseHost = localStorage.getItem('supabase_local_ip') || 'localhost';
 
-// Always match the protocol of the current page to avoid mixed content errors
-const currentPageProtocol = window.location.protocol;
-const protocolString = currentPageProtocol === 'https:' ? 'https://' : 'http://';
+// Check if we're in HTTPS but need to use HTTP backend
+const isUsingHttpsWithHttpBackend = window.location.protocol === 'https:' && 
+  localStorage.getItem('force_http_backend') === 'true';
 
-// Select appropriate Supabase URL based on environment
-const supabaseUrl = isProduction 
-  ? (import.meta.env.VITE_SUPABASE_URL || 'https://timetracking.techlinx.se')
-  : `${protocolString}${localSupabaseHost}:8000`;
+// For production, always use HTTPS. For local dev, respect the force_http_backend setting
+let supabaseUrl;
+if (isProduction) {
+  // In production, use the configured URL or default to the main domain
+  supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://timetracking.techlinx.se';
+} else {
+  // For local development
+  const protocol = isUsingHttpsWithHttpBackend ? 'http://' : `${window.location.protocol}//`;
+  supabaseUrl = `${protocol}${localSupabaseHost}:8000`;
+}
 
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 console.log('Environment:', isProduction ? 'Production' : 'Development');
-console.log('Page is served via:', currentPageProtocol);
+console.log('Page is served via:', window.location.protocol);
 console.log('Using Supabase URL:', supabaseUrl);
+console.log('Using HTTP backend with HTTPS frontend:', isUsingHttpsWithHttpBackend);
 
 if (!supabaseKey) {
   console.warn(
@@ -52,7 +59,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey || 'dummy-key-for-
 console.log('Supabase client configured with:', {
   url: supabaseUrl,
   keyProvided: !!supabaseKey,
-  protocol: supabaseUrl.split(':')[0]
+  protocol: supabaseUrl.split(':')[0],
+  usingHttpBackendWithHttpsFrontend: isUsingHttpsWithHttpBackend
 });
 
 // Test the connection when the app initializes
@@ -112,7 +120,8 @@ export const getConnectionDetails = () => {
     usingProxy: supabaseUrl === window.location.origin,
     localHost: isProduction ? null : localSupabaseHost,
     protocol: supabaseUrl.split(':')[0],
-    pageProtocol: window.location.protocol
+    pageProtocol: window.location.protocol,
+    forceHttpBackend: isUsingHttpsWithHttpBackend
   };
 };
 

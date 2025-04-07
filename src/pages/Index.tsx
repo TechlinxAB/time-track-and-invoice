@@ -60,14 +60,17 @@ const Index = () => {
   };
   
   const handleHttpsToggle = () => {
-    // Store user preference for protocol
-    const currentProtocol = localStorage.getItem('supabase_protocol') || 'http';
-    const newProtocol = currentProtocol === 'http' ? 'https' : 'http';
-    localStorage.setItem('supabase_protocol', newProtocol);
+    // Toggle the force_http_backend setting
+    const current = localStorage.getItem('force_http_backend') === 'true';
+    localStorage.setItem('force_http_backend', (!current).toString());
+    
     toast({
-      title: "Protocol Changed",
-      description: `Connection protocol switched to ${newProtocol.toUpperCase()}. Reloading...`,
+      title: "Backend Protocol Changed",
+      description: current 
+        ? "Using same protocol for frontend and backend. Reloading..." 
+        : "Using HTTP backend with HTTPS frontend. Reloading...",
     });
+    
     setTimeout(() => window.location.reload(), 1500);
   };
 
@@ -98,6 +101,7 @@ const Index = () => {
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
               <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
               <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
+              <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
               {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
               
               {hasMixedContentIssue && (
@@ -127,12 +131,7 @@ const Index = () => {
               <div className="bg-amber-50 border-l-4 border-amber-500 p-3 mb-4">
                 <p className="font-bold">Mixed Content Error Detected</p>
                 <p className="text-sm">Your browser is blocking insecure (HTTP) requests from a secure (HTTPS) page.</p>
-                <p className="text-sm mt-2">Solutions:</p>
-                <ul className="list-disc pl-5 text-sm">
-                  <li>Use HTTPS for both (recommended)</li>
-                  <li>Use HTTP for both (development only)</li>
-                  <li>Enable "allow insecure content" in your browser</li>
-                </ul>
+                <p className="text-sm mt-2">Try clicking "Enable HTTP Backend" below to force using HTTP for backend calls.</p>
               </div>
             ) : (
               <ul className="list-disc pl-5 mb-4 text-sm text-gray-700">
@@ -150,6 +149,7 @@ const Index = () => {
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
               <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
               <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
+              <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
               {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
               
               {hasMixedContentIssue && (
@@ -182,11 +182,13 @@ const Index = () => {
               </Button>
               
               <Button 
-                variant="outline"
+                variant={localStorage.getItem('force_http_backend') === 'true' ? "default" : "outline"}
                 className="px-4 py-2 rounded w-full"
                 onClick={handleHttpsToggle}
               >
-                Switch to {localStorage.getItem('supabase_protocol') === 'https' ? 'HTTP' : 'HTTPS'} Protocol
+                {localStorage.getItem('force_http_backend') === 'true' 
+                  ? "Disable HTTP Backend" 
+                  : "Enable HTTP Backend"}
               </Button>
               
               <Button 
