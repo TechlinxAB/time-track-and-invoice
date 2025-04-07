@@ -107,7 +107,7 @@ cp .env.example .env
 nano .env
 ```
 
-4. **Generate JWT secrets** (from the supabase/docker directory):
+4. **Generate JWT secrets** (you can open another terminal or exit nano temporarily):
 
 ```bash
 # Generate JWT_SECRET for authentication
@@ -151,7 +151,9 @@ docker-compose ps
 
 ```bash
 # Make sure you're in the supabase/docker directory
-docker exec -it supabase_db_1 psql -U postgres -d postgres
+# Use the actual container name from docker-compose ps output
+# It might be 'supabase-db' instead of 'supabase_db_1'
+sudo docker exec -it supabase-db psql -U postgres -d postgres
 ```
 
 2. **Create the fortnox_credentials table**:
@@ -197,24 +199,28 @@ CREATE POLICY "Users can update their own Fortnox credentials"
 
 For the Fortnox API integration, you'll need to create a Supabase Edge Function:
 
-1. **Set up Supabase CLI** (from your home directory):
+1. **Install Supabase CLI** (according to official documentation):
 
 ```bash
 # Navigate to your home directory
 cd ~
 
-# Install Supabase CLI globally
-npm install -g supabase
+# Install using npm in a project directory (not globally)
+mkdir -p supabase-cli && cd supabase-cli
+npm init -y
+npm install supabase
+
+# Add the CLI to your PATH (add to your .bashrc or .zshrc for persistence)
+export PATH="$PATH:$HOME/supabase-cli/node_modules/.bin"
+
+# Alternatively, you can install using other recommended methods:
+# - Using brew: brew install supabase/tap/supabase
+# - Using Windows: scoop bucket add supabase https://github.com/supabase/scoop-bucket.git && scoop install supabase
+# - Using Arch Linux: yay -S supabase-cli
+# - Direct binary download from https://github.com/supabase/cli/releases
 ```
 
-2. **Login to your Supabase instance**:
-
-```bash
-# From any directory
-supabase login
-```
-
-3. **Initialize Supabase in your project directory**:
+2. **Initialize Supabase in your project directory**:
 
 ```bash
 # Navigate to your project directory (create it if it doesn't exist)
@@ -225,7 +231,7 @@ cd ~/freelancer-crm
 supabase init
 ```
 
-4. **Create an Edge Function for Fortnox integration**:
+3. **Create an Edge Function for Fortnox integration**:
 
 ```bash
 # Make sure you're in your project directory
@@ -233,14 +239,14 @@ mkdir -p supabase/functions/fortnox-export
 touch supabase/functions/fortnox-export/index.ts
 ```
 
-5. **Edit the Edge Function**:
+4. **Edit the Edge Function**:
 
 ```bash
 # Make sure you're in your project directory
 nano supabase/functions/fortnox-export/index.ts
 ```
 
-6. **Add the following code to the Edge Function**:
+5. **Add the following code to the Edge Function**:
 
 ```typescript
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -316,7 +322,7 @@ serve(async (req) => {
 })
 ```
 
-7. **Deploy the Edge Function**:
+6. **Deploy the Edge Function**:
 
 ```bash
 # Make sure you're in your project directory
