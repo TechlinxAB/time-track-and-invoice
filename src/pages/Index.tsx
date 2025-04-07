@@ -131,6 +131,7 @@ const Index = () => {
               <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
               {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
+              <p><strong>Direct Supabase URL:</strong> https://supabase.techlinx.se</p>
               {connectionInfo.nginxPath && (
                 <p className="mt-2 text-orange-700">
                   <strong>Nginx Error Log:</strong> {connectionInfo.nginxPath}

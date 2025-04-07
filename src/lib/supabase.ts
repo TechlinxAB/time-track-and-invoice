@@ -24,8 +24,9 @@ if (useReverseProxy) {
   // For local development
   supabaseUrl = 'http://localhost:8000';
 } else {
-  // For production, assume Supabase is available at the /supabase path on same domain
-  supabaseUrl = `${currentProtocol}//${currentDomain}/supabase`;
+  // Use the new backend URL for production
+  supabaseUrl = 'https://supabase.techlinx.se';
+  console.log('Using external Supabase URL:', supabaseUrl);
 }
 
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
