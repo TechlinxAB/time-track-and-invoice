@@ -2,18 +2,18 @@
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 
-// In production environments, use environment variables
-// For local development, we'll always use localhost:8000
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://localhost:8000';
+// Determine if we're in production based on hostname
+const isProduction = window.location.hostname !== 'localhost';
+
+// Select appropriate Supabase URL and key based on environment
+const supabaseUrl = isProduction 
+  ? (import.meta.env.VITE_SUPABASE_URL || 'https://timetracking.techlinx.se')
+  : 'http://localhost:8000';
+
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Always use localhost:8000 for local development
-const getBaseUrl = () => {
-  return 'http://localhost:8000';
-};
-
-const effectiveSupabaseUrl = getBaseUrl();
-console.log('Using Supabase URL:', effectiveSupabaseUrl);
+console.log('Environment:', isProduction ? 'Production' : 'Development');
+console.log('Using Supabase URL:', supabaseUrl);
 
 if (!supabaseKey) {
   console.warn(
@@ -21,7 +21,7 @@ if (!supabaseKey) {
   );
 }
 
-export const supabase = createClient(effectiveSupabaseUrl, supabaseKey || 'dummy-key-for-init', {
+export const supabase = createClient(supabaseUrl, supabaseKey || 'dummy-key-for-init', {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -42,15 +42,15 @@ export const supabase = createClient(effectiveSupabaseUrl, supabaseKey || 'dummy
 
 // Log connection details
 console.log('Supabase client configured with:', {
-  url: effectiveSupabaseUrl,
+  url: supabaseUrl,
   keyProvided: !!supabaseKey,
-  usingProxy: effectiveSupabaseUrl === window.location.origin
+  usingProxy: supabaseUrl === window.location.origin
 });
 
 // Test the connection when the app initializes
 export const testSupabaseConnection = async () => {
   try {
-    console.log(`Testing Supabase connection to: ${effectiveSupabaseUrl}`);
+    console.log(`Testing Supabase connection to: ${supabaseUrl}`);
     
     // First test with a simpler request
     try {
@@ -96,34 +96,17 @@ export const testSupabaseConnection = async () => {
   }
 };
 
-/**
- * Alternative approach for direct function calls without using Edge Functions
- * This can be used when you can't deploy Edge Functions to your self-hosted Supabase
- */
-export const callFortnoxAPI = async (invoiceData: any, accessToken: string) => {
-  try {
-    // In a real implementation, you would directly call the Fortnox API here
-    // using the provided access token
-    console.log('Calling Fortnox API with:', { invoiceData, accessToken });
-    
-    // This is just a simulation - in reality you would call the actual API
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    return { 
-      success: true, 
-      message: 'Invoice exported to Fortnox (direct API call)' 
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return { 
-      success: false, 
-      error: errorMessage 
-    };
-  }
+// Update Index page to show more helpful connection info
+export const getConnectionDetails = () => {
+  return {
+    url: supabaseUrl,
+    environment: isProduction ? 'Production' : 'Development',
+    usingProxy: supabaseUrl === window.location.origin
+  };
 };
 
 // Run the test if both URL and key are provided
-console.log('Testing Supabase connection on startup with URL:', effectiveSupabaseUrl);
+console.log('Testing Supabase connection on startup with URL:', supabaseUrl);
 testSupabaseConnection()
   .then(result => {
     if (!result.success) {
@@ -135,3 +118,4 @@ testSupabaseConnection()
       `);
     }
   });
+

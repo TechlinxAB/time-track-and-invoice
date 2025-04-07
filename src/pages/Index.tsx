@@ -1,32 +1,16 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { testSupabaseConnection, supabase } from "../lib/supabase";
+import { testSupabaseConnection, supabase, getConnectionDetails } from "../lib/supabase";
 import { toast } from "@/components/ui/use-toast";
 
 const Index = () => {
   const navigate = useNavigate();
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "success" | "error">("checking");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [connectionInfo, setConnectionInfo] = useState<{
-    url: string;
-    usingProxy: boolean;
-  }>({
-    url: "",
-    usingProxy: false,
-  });
+  const [connectionInfo, setConnectionInfo] = useState(() => getConnectionDetails());
 
   useEffect(() => {
-    // Display connection information
-    const supabaseConfig = supabase.constructor as any;
-    const url = supabaseConfig?.supabaseUrl || "Unknown";
-    const usingProxy = url === window.location.origin;
-    
-    setConnectionInfo({
-      url,
-      usingProxy,
-    });
-    
     const checkConnection = async () => {
       try {
         // Test Supabase connection on initial load
@@ -75,6 +59,7 @@ const Index = () => {
             <p className="text-muted-foreground mb-4">Connecting to database...</p>
             <div className="w-8 h-8 border-4 border-success/30 border-t-success rounded-full animate-spin mx-auto"></div>
             <div className="mt-4 text-xs bg-gray-100 p-3 rounded text-left">
+              <p><strong>Environment:</strong> {connectionInfo.environment}</p>
               <p><strong>URL:</strong> {connectionInfo.url}</p>
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
             </div>
@@ -103,6 +88,7 @@ const Index = () => {
             </ul>
             
             <div className="mt-2 text-xs bg-gray-100 p-3 rounded text-left mb-4">
+              <p><strong>Environment:</strong> {connectionInfo.environment}</p>
               <p><strong>URL:</strong> {connectionInfo.url}</p>
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
             </div>
