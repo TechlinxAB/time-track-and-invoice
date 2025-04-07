@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 // These would typically come from your environment variables
 // For self-hosted Supabase, these would be your self-hosted instance URLs and keys
@@ -28,7 +28,7 @@ const effectiveSupabaseUrl = getBaseUrl();
 if (!effectiveSupabaseUrl || !supabaseKey) {
   console.warn(
     'Supabase URL or Anon Key is missing. Make sure to set the following environment variables in your .env.local file:\n' +
-    'VITE_SUPABASE_URL=http://your-server-ip:8000\n' +
+    'VITE_SUPABASE_URL=http://localhost:8000\n' +
     'VITE_SUPABASE_ANON_KEY=your-anon-key-from-env-file'
   );
 }
@@ -58,7 +58,7 @@ export const testSupabaseConnection = async () => {
     
     const { data, error } = await supabase.from('fortnox_credentials').select('count').limit(1);
     if (error) {
-      console.error('Supabase connection test failed:', error.message);
+      console.error('Supabase connection test failed:', error.message, error.details);
       
       // Show toast notification for connection error
       toast({
@@ -120,9 +120,9 @@ if (effectiveSupabaseUrl && supabaseKey) {
       if (!result.success) {
         console.warn(`
           ⚠️ Supabase connection failed. Check your configuration:
-          - Ensure VITE_SUPABASE_URL is correct (e.g., http://your-server-ip:8000)
+          - Ensure VITE_SUPABASE_URL is correct (e.g., http://localhost:8000)
           - Verify VITE_SUPABASE_ANON_KEY is correct
-          - Make sure your Supabase instance is running
+          - Make sure your Supabase instance is running on localhost:8000
           - Check if the database table 'fortnox_credentials' exists
           - Check that VAULT_ENC_KEY is set and at least 32 characters long in your .env file
         `);
