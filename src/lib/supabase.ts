@@ -12,11 +12,16 @@ const localSupabaseHost = localStorage.getItem('supabase_local_ip') || 'localhos
 const isUsingHttpsWithHttpBackend = window.location.protocol === 'https:' && 
   localStorage.getItem('force_http_backend') === 'true';
 
-// For production, always use HTTPS. For local dev, respect the force_http_backend setting
+// For production, always use HTTPS unless forced to HTTP backend
 let supabaseUrl;
 if (isProduction) {
-  // In production, use the configured URL or default to the main domain
-  supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://timetracking.techlinx.se';
+  if (isUsingHttpsWithHttpBackend) {
+    // Use HTTP for backend even when frontend is HTTPS (user explicitly enabled this)
+    supabaseUrl = `http://${localSupabaseHost}:8000`;
+  } else {
+    // In production, try to use the same protocol as the frontend
+    supabaseUrl = `${window.location.protocol}//${localSupabaseHost}:8000`;
+  }
 } else {
   // For local development
   const protocol = isUsingHttpsWithHttpBackend ? 'http://' : `${window.location.protocol}//`;
@@ -26,6 +31,7 @@ if (isProduction) {
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 console.log('Environment:', isProduction ? 'Production' : 'Development');
+console.log('Protocol being used:', window.location.protocol);
 console.log('Page is served via:', window.location.protocol);
 console.log('Using Supabase URL:', supabaseUrl);
 console.log('Using HTTP backend with HTTPS frontend:', isUsingHttpsWithHttpBackend);
