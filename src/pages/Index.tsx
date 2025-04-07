@@ -15,6 +15,7 @@ const Index = () => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isProxyError, setIsProxyError] = useState(false);
   const [isInternalOnly, setIsInternalOnly] = useState(false);
+  const [isAutoSwitching, setIsAutoSwitching] = useState(false);
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -23,6 +24,7 @@ const Index = () => {
         setErrorMessage(null);
         setIsProxyError(false);
         setIsInternalOnly(false);
+        setIsAutoSwitching(false);
         
         const result = await testSupabaseConnection();
         
@@ -36,14 +38,15 @@ const Index = () => {
             setConnectionStatus("error");
             setErrorMessage(result.error || "Could not connect to Supabase");
             
-            // Check if this is a proxy error
-            if (result.suggestDirectUrl) {
+            // Handle auto-switching
+            if (result.autoSwitchToDirectUrl) {
+              setIsAutoSwitching(true);
+              setTimeout(() => {
+                localStorage.setItem('use_reverse_proxy', 'false');
+                window.location.reload();
+              }, 2000);
+            } else if (result.suggestReverseProxy) {
               setIsProxyError(true);
-            }
-            
-            // Check if this is an internal network only issue
-            if (result.internalOnly) {
-              setIsInternalOnly(true);
             }
           }
           
@@ -69,12 +72,13 @@ const Index = () => {
   };
   
   const handleReverseProxyToggle = () => {
-    const current = localStorage.getItem('use_reverse_proxy') === 'false';
+    const current = localStorage.getItem('use_reverse_proxy') !== 'false';
     localStorage.setItem('use_reverse_proxy', (!current).toString());
+    localStorage.removeItem('tried_direct');
     
     toast({
       title: "Connection Settings Changed",
-      description: `${current ? "Enabling" : "Disabling"} reverse proxy and reloading application...`,
+      description: `${!current ? "Enabling" : "Disabling"} reverse proxy and reloading application...`,
     });
     
     setTimeout(() => window.location.reload(), 1000);
@@ -100,10 +104,23 @@ const Index = () => {
   
   const handleSwitchToDirectUrl = () => {
     localStorage.setItem('use_reverse_proxy', 'false');
+    localStorage.removeItem('tried_direct');
     
     toast({
       title: "Switching to Direct URL",
       description: "Connecting directly to https://supabase.techlinx.se...",
+    });
+    
+    setTimeout(() => window.location.reload(), 1000);
+  };
+  
+  const handleSwitchToReverseProxy = () => {
+    localStorage.setItem('use_reverse_proxy', 'true');
+    localStorage.removeItem('tried_direct');
+    
+    toast({
+      title: "Switching to Reverse Proxy",
+      description: "Using reverse proxy for connection...",
     });
     
     setTimeout(() => window.location.reload(), 1000);
@@ -150,13 +167,12 @@ const Index = () => {
                 : `We couldn't connect to ${connectionInfo.url}.`}
             </p>
             
-            {isInternalOnly && (
-              <Alert className="mb-4 border-amber-500 bg-amber-50">
-                <Network className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800">
-                  <span className="font-semibold block">Internal Network Access Required</span>
-                  This Supabase instance appears to be accessible only from within your organization's network. 
-                  You may need to connect to VPN or be on the internal network to access it.
+            {isAutoSwitching && (
+              <Alert className="mb-4 border-blue-500 bg-blue-50">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  <span className="font-semibold block">Automatically switching connection method</span>
+                  Trying direct connection to Supabase instead of reverse proxy...
                 </AlertDescription>
               </Alert>
             )}
@@ -165,7 +181,7 @@ const Index = () => {
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  The reverse proxy appears to be misconfigured. Try connecting directly to Supabase instead.
+                  Direct connection failed. Try using the reverse proxy instead.
                 </AlertDescription>
               </Alert>
             )}
@@ -180,7 +196,6 @@ const Index = () => {
               {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
               <p><strong>Direct Supabase URL:</strong> {connectionInfo.directUrl}</p>
-              <p><strong>Likely Needs Internal Network:</strong> {connectionInfo.internalOnly ? "Yes" : "No"}</p>
               {connectionInfo.nginxPath && (
                 <p className="mt-2 text-orange-700">
                   <strong>Nginx Error Log:</strong> {connectionInfo.nginxPath}
@@ -195,21 +210,24 @@ const Index = () => {
             )}
             
             <div className="flex flex-col space-y-2">
-              <Button 
-                className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 w-full"
-                onClick={handleRetry}
-                disabled={isRetrying}
-              >
-                {isRetrying ? "Retrying..." : "Retry Connection"}
-              </Button>
+              {!isAutoSwitching && (
+                <Button 
+                  className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 w-full"
+                  onClick={handleRetry}
+                  disabled={isRetrying}
+                >
+                  {isRetrying ? "Retrying..." : "Retry Connection"}
+                </Button>
+              )}
               
-              {isInternalOnly && (
-                <Alert className="bg-blue-50 border-blue-200">
-                  <Info className="h-4 w-4 text-blue-500" />
-                  <AlertDescription className="text-blue-800 text-xs">
-                    If you're trying to access from outside the network, ask your administrator about VPN access or network configuration.
-                  </AlertDescription>
-                </Alert>
+              {isProxyError && !connectionInfo.reverseProxy && (
+                <Button 
+                  variant="default"
+                  className="px-4 py-2 rounded w-full"
+                  onClick={handleSwitchToReverseProxy}
+                >
+                  Try Reverse Proxy Instead
+                </Button>
               )}
               
               {isProxyError && connectionInfo.reverseProxy && (
@@ -223,7 +241,7 @@ const Index = () => {
               )}
               
               <Button 
-                variant={!connectionInfo.reverseProxy ? "default" : "outline"}
+                variant={connectionInfo.reverseProxy ? "outline" : "default"}
                 className="px-4 py-2 rounded w-full"
                 onClick={handleReverseProxyToggle}
               >
