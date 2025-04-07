@@ -1,5 +1,4 @@
-
-import { supabase, callFortnoxAPI } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { toast } from "sonner";
 
 export interface FortnoxCredentials {
@@ -77,7 +76,27 @@ export const getFortnoxCredentials = async (): Promise<FortnoxCredentials | null
   }
 };
 
-// This function will try to use Edge Functions if available, otherwise fall back to direct API calls
+const callFortnoxAPI = async (invoiceData: any, accessToken: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log('Making direct API call to Fortnox with:', {
+      invoiceData: invoiceData,
+      accessTokenProvided: !!accessToken
+    });
+    
+    toast.warning("Direct Fortnox API calls not fully implemented yet");
+    return { 
+      success: false, 
+      error: "Direct API integration with Fortnox is not implemented in this version." 
+    };
+  } catch (error) {
+    console.error('Error calling Fortnox API:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error calling Fortnox API' 
+    };
+  }
+};
+
 export const exportInvoiceToFortnox = async (invoiceData: any): Promise<{ success: boolean; error?: string }> => {
   try {
     // First, try to call the Edge Function if deployed
@@ -86,7 +105,7 @@ export const exportInvoiceToFortnox = async (invoiceData: any): Promise<{ succes
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.auth.getSession().then(res => res.data.session?.access_token)}`
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         },
         body: JSON.stringify(invoiceData),
       });
