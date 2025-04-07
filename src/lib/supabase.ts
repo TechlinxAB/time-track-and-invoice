@@ -2,10 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 
-// Check if we're using a reverse proxy path - default to true
-const useReverseProxy = localStorage.getItem('use_reverse_proxy') === null 
-  ? true 
-  : localStorage.getItem('use_reverse_proxy') === 'true';
+// Always use reverse proxy by default
+const useReverseProxy = localStorage.getItem('use_reverse_proxy') === 'false' ? false : true;
 const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
 
 // Get the domain and protocol for production use
@@ -71,6 +69,14 @@ console.log('Supabase client configured with:', {
   usingReverseProxy: useReverseProxy
 });
 
+// Function to detect if we're receiving HTML instead of JSON (likely a proxy issue)
+const isHtmlResponse = (response: any) => {
+  if (typeof response === 'string' && response.trim().startsWith('<!DOCTYPE html>')) {
+    return true;
+  }
+  return false;
+};
+
 // Test the connection with a timeout
 export const testSupabaseConnection = async () => {
   try {
@@ -86,9 +92,31 @@ export const testSupabaseConnection = async () => {
     // Try the simple health check with timeout
     const healthCheck = async () => {
       try {
-        const { data: healthData, error: healthError } = await supabase.from('health_check').select('*').limit(1);
-        if (healthError) throw healthError;
-        return healthData;
+        const response = await fetch(`${supabaseUrl}/rest/v1/health_check?select=*&limit=1`, {
+          headers: {
+            'apikey': supabaseKey || 'dummy-key-for-init',
+            'Authorization': `Bearer ${supabaseKey || 'dummy-key-for-init'}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const text = await response.text();
+        
+        // Check if we received HTML instead of JSON (likely a proxy/CORS issue)
+        if (isHtmlResponse(text)) {
+          throw new Error('Received HTML instead of JSON response. This likely indicates a proxy misconfiguration.');
+        }
+        
+        try {
+          const data = JSON.parse(text);
+          return data;
+        } catch (e) {
+          throw new Error(`Failed to parse JSON response: ${text.substring(0, 100)}...`);
+        }
       } catch (healthErr) {
         throw healthErr;
       }
@@ -98,25 +126,17 @@ export const testSupabaseConnection = async () => {
     const healthData = await Promise.race([healthCheck(), timeout]);
     console.log('Health check result:', healthData || 'No data returned');
     
-    // If we get here, the health check was successful, try the main query
-    try {
-      const { data, error } = await supabase.from('fortnox_credentials').select('count').limit(1);
+    // If health check passed, let's try a simple query
+    const { data, error } = await supabase.from('fortnox_credentials').select('count').limit(1);
       
-      if (error) {
-        console.error('Supabase connection test failed:', error.message, error.details);
-        console.error('Full error object:', JSON.stringify(error));
-        
-        return { success: false, error: error.message, timeout: false };
-      } else {
-        console.log('Supabase connection successful');
-        return { success: true, timeout: false };
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Failed to connect to Supabase:', errorMessage);
-      console.error('Full error object:', err);
+    if (error) {
+      console.error('Supabase connection test failed:', error.message, error.details);
+      console.error('Full error object:', JSON.stringify(error));
       
-      return { success: false, error: errorMessage, timeout: false };
+      return { success: false, error: error.message, timeout: false };
+    } else {
+      console.log('Supabase connection successful');
+      return { success: true, timeout: false };
     }
   } catch (err) {
     const isTimeout = err instanceof Error && err.message.includes('timed out');
@@ -139,7 +159,8 @@ export const getConnectionDetails = () => {
     pageProtocol: window.location.protocol,
     reverseProxy: useReverseProxy,
     reverseProxyPath: useReverseProxy ? reverseProxyPath : null,
-    connectionTimeout: CONNECTION_TIMEOUT
+    connectionTimeout: CONNECTION_TIMEOUT,
+    nginxPath: currentDomain === 'timetracking.techlinx.se' ? '/var/log/nginx/freelancer-crm-error.log' : null
   };
 };
 
