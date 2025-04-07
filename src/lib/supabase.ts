@@ -5,20 +5,14 @@ import { toast } from '@/hooks/use-toast';
 // Determine if we're in production based on hostname
 const isProduction = window.location.hostname !== 'localhost';
 
-// Check if user has specified a custom local IP/host and protocol preference
+// Check if user has specified a custom local IP/host
 const localSupabaseHost = localStorage.getItem('supabase_local_ip') || 'localhost';
-const preferredProtocol = localStorage.getItem('supabase_protocol') || 'http';
 
-// Determine the proper protocol to use
+// Always match the protocol of the current page to avoid mixed content errors
 const currentPageProtocol = window.location.protocol;
-const useSecureProtocol = isProduction 
-  ? currentPageProtocol === 'https:' 
-  : preferredProtocol === 'https';
+const protocolString = currentPageProtocol === 'https:' ? 'https://' : 'http://';
 
-// Build the proper protocol string
-const protocolString = useSecureProtocol ? 'https://' : 'http://';
-
-// Select appropriate Supabase URL and key based on environment
+// Select appropriate Supabase URL based on environment
 const supabaseUrl = isProduction 
   ? (import.meta.env.VITE_SUPABASE_URL || 'https://timetracking.techlinx.se')
   : `${protocolString}${localSupabaseHost}:8000`;
@@ -26,7 +20,6 @@ const supabaseUrl = isProduction
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 console.log('Environment:', isProduction ? 'Production' : 'Development');
-console.log('Protocol being used:', protocolString);
 console.log('Page is served via:', currentPageProtocol);
 console.log('Using Supabase URL:', supabaseUrl);
 
@@ -59,7 +52,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey || 'dummy-key-for-
 console.log('Supabase client configured with:', {
   url: supabaseUrl,
   keyProvided: !!supabaseKey,
-  usingProxy: supabaseUrl === window.location.origin,
   protocol: supabaseUrl.split(':')[0]
 });
 
@@ -100,25 +92,6 @@ export const testSupabaseConnection = async () => {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Failed to connect to Supabase:', errorMessage);
     console.error('Full error object:', err);
-    
-    // Check for specific mixed content error
-    const errorString = String(err);
-    const isMixedContentError = 
-      errorString.includes('Mixed Content') || 
-      errorString.includes('blocked:mixed-content');
-      
-    if (isMixedContentError) {
-      console.error('MIXED CONTENT ERROR DETECTED: Your browser is blocking HTTP requests from HTTPS page');
-      
-      if (!isProduction) {
-        // Suggest switching to HTTPS for local development
-        toast({
-          title: "Protocol Mismatch",
-          description: "Your page is using HTTPS but trying to connect to Supabase over HTTP. Try switching to HTTPS protocol.",
-          variant: "destructive"
-        });
-      }
-    }
     
     // Show toast notification for connection error
     toast({
