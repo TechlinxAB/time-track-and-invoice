@@ -1,8 +1,7 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { formatTimeFromMinutes, getTotalDurationForDay } from "@/lib/date-utils";
-import { Button } from "@/components/ui/button";
 import { TimeEntry as TimeEntryType } from "@/types";
 import TimeEntryItem from "./TimeEntryItem";
 import EditTimeEntryModal from "./EditTimeEntryModal";
@@ -22,6 +21,20 @@ const TimeEntriesList = ({ date }: TimeEntriesListProps) => {
   const handleEdit = (entry: TimeEntryType) => {
     setEditingEntry(entry);
   };
+  
+  const handleCloseModal = () => {
+    // Use setTimeout to ensure the DOM is updated properly
+    setTimeout(() => {
+      setEditingEntry(null);
+    }, 50);
+  };
+
+  // Clean up any lingering styles when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.pointerEvents = '';
+    };
+  }, []);
 
   return (
     <div className="card-glass rounded-xl overflow-hidden animate-fade-in">
@@ -57,7 +70,7 @@ const TimeEntriesList = ({ date }: TimeEntriesListProps) => {
       {editingEntry && (
         <EditTimeEntryModal 
           entry={editingEntry} 
-          onClose={() => setEditingEntry(null)} 
+          onClose={handleCloseModal} 
         />
       )}
     </div>

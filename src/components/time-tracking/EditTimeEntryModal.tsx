@@ -47,6 +47,7 @@ type FormValues = z.infer<typeof formSchema>;
 const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
   const { clients, activities, updateTimeEntry } = useAppContext();
   const [isOpen, setIsOpen] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -61,36 +62,62 @@ const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
 
   // Handle dialog close with proper cleanup
   const handleClose = () => {
+    if (isSubmitting) return;
+    
     setIsOpen(false);
+    
     // Allow animation to complete before removing from DOM
+    // Use a slightly longer timeout to ensure UI is responsive
     setTimeout(() => {
+      // Reset the form before unmounting
+      form.reset();
       onClose();
     }, 300);
   };
 
+  // Ensure dialog properly cleans up on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup function for when component unmounts
+      document.body.style.pointerEvents = '';
+    };
+  }, []);
+
   // Handle open state change from Dialog component
   const handleOpenChange = (open: boolean) => {
-    if (!open) {
+    if (!open && !isSubmitting) {
       handleClose();
     }
     setIsOpen(open);
   };
 
   const onSubmit = (data: FormValues) => {
-    const duration = calculateDuration(data.startTime, data.endTime);
-    
-    updateTimeEntry({
-      ...entry,
-      ...data,
-      duration,
-    });
-    
-    handleClose();
+    try {
+      setIsSubmitting(true);
+      const duration = calculateDuration(data.startTime, data.endTime);
+      
+      updateTimeEntry({
+        ...entry,
+        ...data,
+        duration,
+      });
+      
+      handleClose();
+    } catch (error) {
+      console.error("Error updating time entry:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px]" onInteractOutside={(e) => {
+        // Prevent interaction outside while submitting
+        if (isSubmitting) {
+          e.preventDefault();
+        }
+      }}>
         <DialogHeader>
           <DialogTitle>Edit Time Entry</DialogTitle>
         </DialogHeader>
@@ -108,6 +135,7 @@ const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
+                      disabled={isSubmitting}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -137,6 +165,7 @@ const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
+                      disabled={isSubmitting}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -170,6 +199,7 @@ const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
                         {...field}
                         className="input-time w-full"
                         placeholder="HH:MM"
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                     <FormMessage />
@@ -188,6 +218,7 @@ const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
                         {...field}
                         className="input-time w-full"
                         placeholder="HH:MM"
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                     <FormMessage />
@@ -208,6 +239,7 @@ const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
                       {...field}
                       placeholder="What did you do?"
                       className="h-24"
+                      disabled={isSubmitting}
                     />
                   </FormControl>
                   <FormMessage />
@@ -220,14 +252,16 @@ const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
                 type="button" 
                 variant="outline" 
                 onClick={handleClose}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
               <Button 
                 type="submit"
                 className="bg-success hover:bg-success/90 text-success-foreground"
+                disabled={isSubmitting}
               >
-                Save Changes
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </form>

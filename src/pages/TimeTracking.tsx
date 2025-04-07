@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
-import { format } from "date-fns";
 import { formatDate, formatDisplayDate, getDatesForCurrentWeek, getNextWeek, getPreviousWeek } from "@/lib/date-utils";
 import DateSelector from "@/components/time-tracking/DateSelector";
 import NewTimeEntry from "@/components/time-tracking/NewTimeEntry";
@@ -26,8 +25,10 @@ const TimeTracking = () => {
   };
   
   const handleCloseAddEntry = () => {
-    // Ensure we properly clean up when closing the add entry form
-    setIsAddingEntry(false);
+    // Ensure modal is fully closed before updating state
+    setTimeout(() => {
+      setIsAddingEntry(false);
+    }, 50);
   };
 
   return <div className="p-6 max-w-7xl mx-auto">

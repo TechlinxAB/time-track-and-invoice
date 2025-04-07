@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import {
@@ -72,14 +71,24 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
     }
   }, [selectedActivityId, activities]);
 
+  // Ensure component cleans up on unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.pointerEvents = '';
+    };
+  }, []);
+
   // Safe close handler to prevent state issues
   const handleClose = () => {
     // Prevent closing during submission
     if (isSubmitting) return;
     
-    // Reset form and call parent close handler
+    // Reset form and call parent close handler with a slight delay
     form.reset();
-    onClose();
+    
+    setTimeout(() => {
+      onClose();
+    }, 50);
   };
 
   const onSubmit = async (data: FormValues) => {
@@ -106,7 +115,11 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
       
       // Show success message and close form
       toast.success("Time entry added successfully");
-      onSuccessfulAdd();
+      
+      // Delay successful add callback to ensure UI is responsive
+      setTimeout(() => {
+        onSuccessfulAdd();
+      }, 100);
     } catch (error) {
       toast.error("Failed to add time entry");
       console.error("Error adding time entry:", error);
