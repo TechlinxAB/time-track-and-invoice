@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import {
@@ -73,12 +72,18 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
 
   const onSubmit = (data: FormValues) => {
     try {
-      addTimeEntry({
-        ...data,
+      const timeEntryData = {
+        clientId: data.clientId,
+        activityId: data.activityId,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        description: data.description || "",
         date: formatDate(date),
         billable: true,
-        invoiced: false,
-      });
+        invoiced: false
+      };
+      
+      addTimeEntry(timeEntryData);
       onSuccessfulAdd();
       toast.success("Time entry added successfully");
     } catch (error) {
