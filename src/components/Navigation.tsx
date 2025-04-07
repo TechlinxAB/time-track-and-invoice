@@ -4,7 +4,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
   Clock, FileText, LayoutDashboard, Users, Settings as SettingsIcon, 
-  List
+  List, Calendar, User
 } from "lucide-react";
 
 interface NavItemProps {
@@ -15,25 +15,24 @@ interface NavItemProps {
   active: boolean;
 }
 
-// Memoized NavItem component for better performance
 const NavItem = memo(({ to, icon: Icon, label, collapsed, active }: NavItemProps) => {
   return (
     <li>
       <NavLink
         to={to}
         className={cn(
-          "flex items-center py-2 px-3 rounded-md transition-all duration-200",
+          "flex items-center py-2.5 px-3 rounded-lg transition-all duration-200",
           active
-            ? "bg-success/20 text-success font-medium"
-            : "hover:bg-accent"
+            ? "bg-success/15 text-success font-medium shadow-sm"
+            : "hover:bg-muted/30 text-muted-foreground"
         )}
       >
         <Icon 
-          size={20} 
+          size={18} 
           className={cn("flex-shrink-0", collapsed ? "mx-auto" : "mr-3")} 
         />
         {!collapsed && (
-          <span className="overflow-hidden whitespace-nowrap transition-all duration-300">
+          <span className="overflow-hidden whitespace-nowrap transition-all duration-300 text-sm">
             {label}
           </span>
         )}
@@ -57,24 +56,43 @@ const navigationItems = [
   { to: "/settings", icon: SettingsIcon, label: "Settings" },
 ];
 
-// Memoize the entire Navigation component
 const Navigation = memo(({ collapsed }: NavigationProps) => {
   const { pathname } = useLocation();
 
   return (
     <nav className="flex-1 py-4 overflow-y-auto">
-      <ul className="space-y-1 px-2">
-        {navigationItems.map((item) => (
-          <NavItem
-            key={item.to}
-            to={item.to}
-            icon={item.icon}
-            label={item.label}
-            collapsed={collapsed}
-            active={pathname === item.to}
-          />
-        ))}
-      </ul>
+      <div className="px-3 mb-4">
+        {!collapsed && (
+          <div className="flex items-center gap-3 mb-2 px-3">
+            <div className="h-9 w-9 rounded-full bg-success/20 flex items-center justify-center text-success font-medium">
+              <User size={16} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">John Doe</span>
+              <span className="text-xs text-muted-foreground">Freelancer</span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="px-2">
+        {!collapsed && (
+          <h2 className="text-xs uppercase text-muted-foreground font-medium tracking-wider px-3 mb-2">
+            Main Menu
+          </h2>
+        )}
+        <ul className="space-y-1">
+          {navigationItems.map((item) => (
+            <NavItem
+              key={item.to}
+              to={item.to}
+              icon={item.icon}
+              label={item.label}
+              collapsed={collapsed}
+              active={pathname === item.to}
+            />
+          ))}
+        </ul>
+      </div>
     </nav>
   );
 });
