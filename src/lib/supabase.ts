@@ -5,10 +5,13 @@ import { toast } from '@/hooks/use-toast';
 // Determine if we're in production based on hostname
 const isProduction = window.location.hostname !== 'localhost';
 
+// Check if user has specified a custom local IP/host
+const localSupabaseHost = localStorage.getItem('supabase_local_ip') || 'localhost';
+
 // Select appropriate Supabase URL and key based on environment
 const supabaseUrl = isProduction 
   ? (import.meta.env.VITE_SUPABASE_URL || 'https://timetracking.techlinx.se')
-  : (window.location.protocol === 'https:' ? 'https:' : 'http:') + '//localhost:8000';
+  : `${window.location.protocol}//${localSupabaseHost}:8000`;
 
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
@@ -101,7 +104,8 @@ export const getConnectionDetails = () => {
   return {
     url: supabaseUrl,
     environment: isProduction ? 'Production' : 'Development',
-    usingProxy: supabaseUrl === window.location.origin
+    usingProxy: supabaseUrl === window.location.origin,
+    localHost: isProduction ? null : localSupabaseHost
   };
 };
 

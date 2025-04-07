@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ const Login = () => {
     const usingProxy = url === window.location.origin;
     return { url, usingProxy };
   });
+  
+  const localSupabaseHost = localStorage.getItem('supabase_local_ip') || 'localhost';
 
   // If user is already logged in, redirect to the dashboard
   if (user) {
@@ -91,6 +93,14 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+  
+  const handleConfigureLocalDb = () => {
+    const localIp = prompt("Enter your local Supabase IP address:", localStorage.getItem('supabase_local_ip') || "localhost");
+    if (localIp) {
+      localStorage.setItem('supabase_local_ip', localIp);
+      window.location.reload();
+    }
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/20 p-4">
@@ -137,10 +147,16 @@ const Login = () => {
           )}
           
           <div className="mt-4 text-xs bg-gray-100 p-3 rounded text-left">
-            <p><strong>API URL:</strong> http://localhost:8000</p>
-            <p><strong>Connecting Directly:</strong> Yes</p>
-            <p><strong>Backend Expected:</strong> http://localhost:8000</p>
-            <p className="pt-2 text-amber-600 font-medium">Important: Make sure the Supabase backend is running on localhost:8000</p>
+            <p><strong>API URL:</strong> {connectionInfo.url}</p>
+            <p><strong>Connecting Directly:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
+            <p><strong>Backend Expected:</strong> {window.location.protocol}//{localSupabaseHost}:8000</p>
+            <p className="pt-2 text-amber-600 font-medium">Important: Make sure the Supabase backend is running on {localSupabaseHost}:8000</p>
+            <button 
+              onClick={handleConfigureLocalDb} 
+              className="mt-2 text-xs text-blue-600 hover:underline"
+            >
+              Change local Supabase address
+            </button>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">

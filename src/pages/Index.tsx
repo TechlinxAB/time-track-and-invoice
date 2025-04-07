@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { testSupabaseConnection, supabase, getConnectionDetails } from "../lib/supabase";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
@@ -52,11 +52,19 @@ const Index = () => {
 
   const handleManualConnect = () => {
     // For local development with IP address
-    const localIp = prompt("Enter your local Supabase IP address:", "localhost");
+    const localIp = prompt("Enter your local Supabase IP address:", localStorage.getItem('supabase_local_ip') || "localhost");
     if (localIp) {
       localStorage.setItem('supabase_local_ip', localIp);
       window.location.reload();
     }
+  };
+  
+  const handleHttpsToggle = () => {
+    // Store user preference for protocol
+    const currentProtocol = localStorage.getItem('supabase_protocol') || 'http';
+    const newProtocol = currentProtocol === 'http' ? 'https' : 'http';
+    localStorage.setItem('supabase_protocol', newProtocol);
+    window.location.reload();
   };
 
   return (
@@ -72,6 +80,7 @@ const Index = () => {
               <p><strong>Environment:</strong> {connectionInfo.environment}</p>
               <p><strong>URL:</strong> {connectionInfo.url}</p>
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
+              {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
             </div>
           </>
         )}
@@ -101,6 +110,8 @@ const Index = () => {
               <p><strong>Environment:</strong> {connectionInfo.environment}</p>
               <p><strong>URL:</strong> {connectionInfo.url}</p>
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
+              {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
+              
               {errorMessage && errorMessage.includes("Mixed Content") && (
                 <p className="text-red-500 font-semibold mt-2">
                   Mixed Content Error: Your browser is blocking HTTP requests from an HTTPS page
@@ -128,6 +139,14 @@ const Index = () => {
                 onClick={handleManualConnect}
               >
                 Configure Local IP
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="px-4 py-2 rounded w-full"
+                onClick={handleHttpsToggle}
+              >
+                Toggle HTTP/HTTPS Protocol
               </Button>
               
               <Button 
