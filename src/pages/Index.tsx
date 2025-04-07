@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { testSupabaseConnection, supabase, getConnectionDetails } from "../lib/supabase";
 import { toast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -49,6 +50,15 @@ const Index = () => {
     checkConnection();
   }, [navigate]);
 
+  const handleManualConnect = () => {
+    // For local development with IP address
+    const localIp = prompt("Enter your local Supabase IP address:", "localhost");
+    if (localIp) {
+      localStorage.setItem('supabase_local_ip', localIp);
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="flex items-center justify-center h-screen bg-gray-50">
       <div className="text-center max-w-md p-6 rounded-lg shadow-sm bg-white">
@@ -81,16 +91,21 @@ const Index = () => {
             </p>
             <ul className="list-disc pl-5 mb-4 text-sm text-gray-700">
               <li>Incorrect Supabase URL or API key</li>
-              <li>Missing VAULT_ENC_KEY environment variable</li>
+              <li>Mixed content issues (HTTP vs HTTPS)</li>
               <li>Supabase service not running or unhealthy</li>
               <li>Network connectivity issues</li>
-              <li>Reverse proxy configuration issues</li>
+              <li>CORS or proxy configuration issues</li>
             </ul>
             
             <div className="mt-2 text-xs bg-gray-100 p-3 rounded text-left mb-4">
               <p><strong>Environment:</strong> {connectionInfo.environment}</p>
               <p><strong>URL:</strong> {connectionInfo.url}</p>
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
+              {errorMessage && errorMessage.includes("Mixed Content") && (
+                <p className="text-red-500 font-semibold mt-2">
+                  Mixed Content Error: Your browser is blocking HTTP requests from an HTTPS page
+                </p>
+              )}
             </div>
             
             {errorMessage && (
@@ -98,12 +113,31 @@ const Index = () => {
                 {errorMessage}
               </div>
             )}
-            <button 
-              className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 w-full"
-              onClick={() => window.location.reload()}
-            >
-              Retry Connection
-            </button>
+            
+            <div className="flex flex-col space-y-2">
+              <Button 
+                className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 w-full"
+                onClick={() => window.location.reload()}
+              >
+                Retry Connection
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="px-4 py-2 rounded w-full"
+                onClick={handleManualConnect}
+              >
+                Configure Local IP
+              </Button>
+              
+              <Button 
+                variant="ghost"
+                className="px-4 py-2 rounded w-full text-muted-foreground"
+                onClick={() => navigate("/login")}
+              >
+                Continue to Login
+              </Button>
+            </div>
           </div>
         )}
       </div>

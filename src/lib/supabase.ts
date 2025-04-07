@@ -8,7 +8,7 @@ const isProduction = window.location.hostname !== 'localhost';
 // Select appropriate Supabase URL and key based on environment
 const supabaseUrl = isProduction 
   ? (import.meta.env.VITE_SUPABASE_URL || 'https://timetracking.techlinx.se')
-  : 'http://localhost:8000';
+  : (window.location.protocol === 'https:' ? 'https:' : 'http:') + '//localhost:8000';
 
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
@@ -118,4 +118,3 @@ testSupabaseConnection()
       `);
     }
   });
-
