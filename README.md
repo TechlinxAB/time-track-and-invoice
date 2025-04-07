@@ -107,7 +107,7 @@ cp .env.example .env
 nano .env
 ```
 
-4. **Generate JWT secrets** (you can open another terminal or exit nano temporarily):
+4. **Generate JWT secrets and encryption key** (you can open another terminal or exit nano temporarily):
 
 ```bash
 # Generate JWT_SECRET for authentication
@@ -118,9 +118,15 @@ openssl rand -base64 64
 
 # Generate SERVICE_ROLE_KEY (for admin API calls)
 openssl rand -base64 64
+
+# Generate VAULT_ENC_KEY (at least 32 characters)
+openssl rand -base64 32
 ```
 
 5. **Update your .env file** with these values, and set appropriate PostgreSQL credentials.
+
+   - Make sure to set `VAULT_ENC_KEY` to the generated value above (this is required)
+   - Set appropriate PostgreSQL credentials for `POSTGRES_PASSWORD`
 
    **Important**: For older versions of Docker Compose (1.29.x), you need to modify the docker-compose.yml file to fix the environment variables:
 
@@ -144,6 +150,16 @@ docker-compose up -d
 # Make sure you're in the supabase/docker directory
 docker-compose ps
 ```
+
+If any services failed to start, check the logs:
+
+```bash
+docker-compose logs <service-name>
+```
+
+Common issues:
+- Missing `VAULT_ENC_KEY` in .env file (must be at least 32 characters)
+- Docker Compose version compatibility (use quotes for boolean values)
 
 ### Step 2: Set Up the Database Schema
 
@@ -195,141 +211,7 @@ CREATE POLICY "Users can update their own Fortnox credentials"
 \q
 ```
 
-### Step 3: Configure Supabase Edge Functions
-
-For the Fortnox API integration, you'll need to create a Supabase Edge Function:
-
-1. **Install Supabase CLI** (according to official documentation):
-
-```bash
-# Navigate to your home directory
-cd ~
-
-# Install using npm in a project directory (not globally)
-mkdir -p supabase-cli && cd supabase-cli
-npm init -y
-npm install supabase
-
-# Add the CLI to your PATH (add to your .bashrc or .zshrc for persistence)
-export PATH="$PATH:$HOME/supabase-cli/node_modules/.bin"
-
-# Alternatively, you can install using other recommended methods:
-# - Using brew: brew install supabase/tap/supabase
-# - Using Windows: scoop bucket add supabase https://github.com/supabase/scoop-bucket.git && scoop install supabase
-# - Using Arch Linux: yay -S supabase-cli
-# - Direct binary download from https://github.com/supabase/cli/releases
-```
-
-2. **Initialize Supabase in your project directory**:
-
-```bash
-# Navigate to your project directory (create it if it doesn't exist)
-mkdir -p ~/freelancer-crm
-cd ~/freelancer-crm
-
-# Initialize Supabase
-supabase init
-```
-
-3. **Create an Edge Function for Fortnox integration**:
-
-```bash
-# Make sure you're in your project directory
-mkdir -p supabase/functions/fortnox-export
-touch supabase/functions/fortnox-export/index.ts
-```
-
-4. **Edit the Edge Function**:
-
-```bash
-# Make sure you're in your project directory
-nano supabase/functions/fortnox-export/index.ts
-```
-
-5. **Add the following code to the Edge Function**:
-
-```typescript
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
-
-  try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    )
-    
-    // Get the JWT token from the request
-    const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-    if (!token) {
-      return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Get the user from the token
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Get the Fortnox credentials for this user
-    const { data: credentials, error: credentialsError } = await supabaseClient
-      .from('fortnox_credentials')
-      .select('client_id, client_secret, access_token, refresh_token')
-      .eq('user_id', user.id)
-      .single()
-      
-    if (credentialsError || !credentials) {
-      return new Response(
-        JSON.stringify({ error: 'Fortnox credentials not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-    
-    // Get the invoice data from the request
-    const invoiceData = await req.json()
-    
-    // In a real implementation, you would use the credentials and invoice data
-    // to make API calls to Fortnox
-    
-    // For now, just return success
-    return new Response(
-      JSON.stringify({ success: true, message: 'Invoice exported to Fortnox (simulated)' }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  }
-})
-```
-
-6. **Deploy the Edge Function**:
-
-```bash
-# Make sure you're in your project directory
-supabase functions deploy fortnox-export --project-ref <your-supabase-project-ref>
-```
-
-### Step 4: Deploy the Frontend Application
+### Step 3: Configure the Frontend Application
 
 1. **Clone the application repository**:
 
@@ -371,58 +253,101 @@ npm install
 npm run build
 ```
 
-5. **Set up Nginx to serve the built frontend files**:
+### Step 4: Set up Nginx to serve the frontend and proxy API requests
+
+1. **Install Nginx**:
 
 ```bash
 sudo apt update
-sudo apt install nginx
-sudo nano /etc/nginx/sites-available/freelancer-crm
+sudo apt install -y nginx
 ```
 
-6. **Add this Nginx configuration**:
+2. **Create a directory for your application**:
+
+```bash
+# Create the directory where the built files will be served from
+sudo mkdir -p /var/www/html/freelancer-crm
+```
+
+3. **Copy your built frontend files**:
+
+```bash
+# Copy the built files to the nginx directory
+sudo cp -r dist/* /var/www/html/freelancer-crm/
+```
+
+4. **Create a Nginx configuration file**:
+
+```bash
+sudo nano /etc/nginx/sites-available/freelancer-crm.conf
+```
+
+5. **Add this Nginx configuration**:
 
 ```nginx
 server {
     listen 80;
     server_name your-domain-or-ip;
 
-    root /path/to/your/project/dist;
+    # Root directory where your built frontend files are located
+    root /var/www/html/freelancer-crm;
     index index.html;
 
+    # Handle frontend routes for SPA
     location / {
         try_files $uri $uri/ /index.html;
     }
 
-    # Proxy requests to Supabase
+    # Proxy Supabase API requests
     location /rest/v1/ {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location /auth/v1/ {
         proxy_pass http://localhost:9999;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location /storage/v1/ {
         proxy_pass http://localhost:9000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Redirect Edge Functions if needed
+    location /functions/v1/ {
+        proxy_pass http://localhost:8000/functions/v1/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-7. **Enable the site and restart Nginx**:
+6. **Enable the site and restart Nginx**:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/freelancer-crm /etc/nginx/sites-enabled/
-sudo nginx -t  # Test the configuration
+# Create a symbolic link to enable the site
+sudo ln -s /etc/nginx/sites-available/freelancer-crm.conf /etc/nginx/sites-enabled/
+
+# Test the nginx configuration
+sudo nginx -t
+
+# If the test is successful, restart nginx
 sudo systemctl restart nginx
 ```
 
-8. **(Optional) Set up SSL with Certbot**:
+7. **(Optional) Set up SSL with Certbot**:
 
 ```bash
 sudo apt install certbot python3-certbot-nginx
@@ -434,7 +359,7 @@ sudo certbot --nginx -d your-domain.com
 1. **Use the Supabase UI** to create an initial admin user:
 
    - Open your browser and navigate to `http://your-server-ip:3000`
-   - Log in with the email and password you set in the `.env` file
+   - Log in with the email and password you set in the `.env` file (default is `supabase`)
    - Go to Authentication > Users and create a new user
 
 2. **Alternatively, use the API**:
@@ -484,6 +409,13 @@ sudo crontab -e
 0 2 * * * /root/backup-supabase.sh
 ```
 
+### Accessing Your Application
+
+After completing the setup:
+
+1. Access your frontend application at: `http://your-domain-or-ip`
+2. Access the Supabase Studio at: `http://your-domain-or-ip:3000`
+
 ### Updating the Application
 
 To update your application with new changes:
@@ -494,6 +426,9 @@ cd /path/to/your/project
 git pull
 npm install
 npm run build
+
+# Copy the updated files to the nginx directory
+sudo cp -r dist/* /var/www/html/freelancer-crm/
 ```
 
 To update Supabase:
@@ -520,11 +455,10 @@ docker-compose logs -f
 sudo tail -f /var/log/nginx/error.log
 ```
 
-3. **Check Edge Function logs**:
-```bash
-# From your project directory where supabase is initialized
-supabase functions logs --project-ref <your-project-ref>
-```
+3. **Common Supabase Issues**:
+   - Missing `VAULT_ENC_KEY`: Make sure your .env file contains a VAULT_ENC_KEY that is at least 32 characters long
+   - Connection issues: Make sure the correct ports are exposed and not blocked by a firewall
+   - Database errors: Check PostgreSQL logs with `docker-compose logs db`
 
 4. **Reset database password** (if needed):
 ```bash
@@ -546,4 +480,3 @@ sudo systemctl restart nginx
 - [Supabase Self-Hosting Guide](https://supabase.com/docs/guides/hosting/docker)
 - [Nginx Documentation](https://nginx.org/en/docs/)
 - [Docker Documentation](https://docs.docker.com/)
-
