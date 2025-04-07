@@ -10,12 +10,13 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const isProduction = window.location.protocol === 'https:' || 
                      !window.location.hostname.includes('localhost');
 
-// For reverse proxy setups, we may need to use the current origin
+// For reverse proxy setups, we need to use the current origin
 const getBaseUrl = () => {
   if (!supabaseUrl) return '';
   
   // If we're behind a reverse proxy, use the current origin for API requests
-  if (isProduction && supabaseUrl.includes('your-server-ip')) {
+  if (isProduction) {
+    // Use current origin (e.g. https://timetracking.techlinx.se) when running in production
     return window.location.origin;
   }
   
