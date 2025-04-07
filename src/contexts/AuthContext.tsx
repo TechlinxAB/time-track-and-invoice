@@ -35,6 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (error) {
           console.error('Error getting session:', error);
+          console.error('Full error object:', JSON.stringify(error));
           toast({
             title: "Session Error",
             description: `Could not retrieve session: ${error.message}`,
@@ -53,6 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (err) {
         console.error('Unexpected error during auth initialization:', err);
+        console.error('Full error object:', JSON.stringify(err));
       } finally {
         setLoading(false);
       }
@@ -76,10 +78,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signIn = async (email: string, password: string) => {
     try {
       console.log('Attempting to sign in user:', email);
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      console.log('Using Supabase URL:', (supabase as any).supabaseUrl);
+      
+      // Add a delay to ensure the request has time to complete
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password,
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
       
       if (error) {
         console.error('Sign in error:', error.message);
+        console.error('Full error object:', JSON.stringify(error));
         return { success: false, error };
       }
       
@@ -87,6 +99,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return { success: true, error: null };
     } catch (error) {
       console.error('Unexpected error during sign in:', error);
+      console.error('Full error object:', JSON.stringify(error));
       return { success: false, error: error as Error };
     }
   };
@@ -94,10 +107,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (email: string, password: string) => {
     try {
       console.log('Attempting to sign up user:', email);
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      console.log('Using Supabase URL:', (supabase as any).supabaseUrl);
+      
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
+      });
       
       if (error) {
         console.error('Sign up error:', error.message);
+        console.error('Full error object:', JSON.stringify(error));
         return { success: false, error };
       }
       
@@ -105,6 +127,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return { success: true, error: null };
     } catch (error) {
       console.error('Unexpected error during sign up:', error);
+      console.error('Full error object:', JSON.stringify(error));
       return { success: false, error: error as Error };
     }
   };
@@ -116,6 +139,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('Sign out successful');
     } catch (error) {
       console.error('Error during sign out:', error);
+      console.error('Full error object:', JSON.stringify(error));
       toast({
         title: "Error",
         description: "Failed to sign out properly",

@@ -17,6 +17,12 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [connectionInfo, setConnectionInfo] = useState<{url: string; usingProxy: boolean}>(() => {
+    const supabaseConfig = supabase.constructor as any;
+    const url = supabaseConfig?.supabaseUrl || "Unknown";
+    const usingProxy = url === window.location.origin;
+    return { url, usingProxy };
+  });
 
   // If user is already logged in, redirect to the dashboard
   if (user) {
@@ -30,7 +36,8 @@ const Login = () => {
 
     try {
       console.log("Starting authentication process...");
-      console.log("Using Supabase URL:", (supabase as any).supabaseUrl);
+      console.log("Using Supabase URL:", connectionInfo.url);
+      console.log("Using Proxy:", connectionInfo.usingProxy ? "Yes" : "No");
       
       let result;
 
@@ -47,13 +54,22 @@ const Login = () => {
       if (!result.success) {
         const errorMsg = result.error?.message || "Authentication failed";
         console.error("Auth error:", errorMsg);
+        console.error("Full error details:", JSON.stringify(result.error, null, 2));
         setErrorDetails(JSON.stringify(result.error, null, 2));
         
-        toast({
-          title: "Authentication Failed",
-          description: errorMsg,
-          variant: "destructive"
-        });
+        if (result.error && 'status' in result.error && result.error.status === 502) {
+          toast({
+            title: "Backend Connection Error (502)",
+            description: "Cannot connect to authentication server. Please check if the backend is running on localhost:8000.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Authentication Failed",
+            description: errorMsg,
+            variant: "destructive"
+          });
+        }
       } else if (isSignUp) {
         toast({
           title: "Account Created",
@@ -119,6 +135,12 @@ const Login = () => {
               <pre className="whitespace-pre-wrap">{errorDetails}</pre>
             </div>
           )}
+          
+          <div className="mt-4 text-xs bg-gray-100 p-3 rounded text-left">
+            <p><strong>API URL:</strong> {connectionInfo.url}</p>
+            <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
+            <p><strong>Backend Expected:</strong> http://localhost:8000</p>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <Button
