@@ -10,6 +10,7 @@ import Settings from "./pages/Settings";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import Index from "./pages/Index";
 import { AppProvider } from "./contexts/AppContext";
 import { useAuth } from "./contexts/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -35,8 +36,9 @@ function App() {
     <AppProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Index />} />
         
-        <Route path="/" element={
+        <Route path="/dashboard" element={
           <ProtectedRoute>
             <Layout />
           </ProtectedRoute>
