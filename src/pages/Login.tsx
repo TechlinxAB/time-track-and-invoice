@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 const Login = () => {
   const { user, signIn, signUp } = useAuth();
@@ -35,14 +35,24 @@ const Login = () => {
       }
 
       if (!result.success) {
-        toast.error(result.error?.message || "Authentication failed");
+        toast({
+          title: "Authentication Failed",
+          description: result.error?.message || "Authentication failed",
+          variant: "destructive"
+        });
       } else if (isSignUp) {
-        toast.success("Account created! Check your email to confirm your registration.");
+        toast({
+          title: "Account Created",
+          description: "Check your email to confirm your registration.",
+          variant: "default"
+        });
       }
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "An error occurred"
-      );
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
