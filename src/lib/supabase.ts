@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 
-// Always use reverse proxy by default
-const useReverseProxy = localStorage.getItem('use_reverse_proxy') === 'false' ? false : true;
+// Always use direct URL by default since reverse proxy has issues
+const useReverseProxy = localStorage.getItem('use_reverse_proxy') === 'true' ? true : false;
 const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
 
 // Get the domain and protocol for production use
@@ -24,9 +24,9 @@ if (useReverseProxy) {
   // For local development
   supabaseUrl = 'http://localhost:8000';
 } else {
-  // Use the new backend URL for production
+  // Use the direct Supabase URL for production
   supabaseUrl = 'https://supabase.techlinx.se';
-  console.log('Using external Supabase URL:', supabaseUrl);
+  console.log('Using direct Supabase URL:', supabaseUrl);
 }
 
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -109,7 +109,12 @@ export const testSupabaseConnection = async () => {
         
         // Check if we received HTML instead of JSON (likely a proxy/CORS issue)
         if (isHtmlResponse(text)) {
-          throw new Error('Received HTML instead of JSON response. This likely indicates a proxy misconfiguration.');
+          // If we're using reverse proxy and got HTML, it indicates a proxy issue
+          if (useReverseProxy) {
+            throw new Error('Received HTML instead of JSON response. This likely indicates a proxy misconfiguration. Try using direct URL instead.');
+          } else {
+            throw new Error('Received HTML instead of JSON response. API endpoint may be misconfigured.');
+          }
         }
         
         try {
@@ -134,6 +139,16 @@ export const testSupabaseConnection = async () => {
       console.error('Supabase connection test failed:', error.message, error.details);
       console.error('Full error object:', JSON.stringify(error));
       
+      // If we're using the reverse proxy and it failed, suggest trying the direct URL
+      if (useReverseProxy) {
+        return { 
+          success: false, 
+          error: `${error.message}. Consider using the direct URL instead of the reverse proxy.`, 
+          timeout: false,
+          suggestDirectUrl: true
+        };
+      }
+      
       return { success: false, error: error.message, timeout: false };
     } else {
       console.log('Supabase connection successful');
@@ -142,11 +157,17 @@ export const testSupabaseConnection = async () => {
   } catch (err) {
     const isTimeout = err instanceof Error && err.message.includes('timed out');
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    const isProxyError = errorMessage.includes('proxy misconfiguration');
     
     console.error(`Supabase connection ${isTimeout ? 'timed out' : 'failed'}:`, errorMessage);
     console.error('Full error object:', err);
     
-    return { success: false, error: errorMessage, timeout: isTimeout };
+    return { 
+      success: false, 
+      error: errorMessage, 
+      timeout: isTimeout,
+      suggestDirectUrl: isProxyError && useReverseProxy
+    };
   }
 };
 
@@ -161,6 +182,7 @@ export const getConnectionDetails = () => {
     reverseProxy: useReverseProxy,
     reverseProxyPath: useReverseProxy ? reverseProxyPath : null,
     connectionTimeout: CONNECTION_TIMEOUT,
+    directUrl: 'https://supabase.techlinx.se',
     nginxPath: currentDomain === 'timetracking.techlinx.se' ? '/var/log/nginx/freelancer-crm-error.log' : null
   };
 };
@@ -174,6 +196,9 @@ testSupabaseConnection()
       if (result.timeout) {
         message += `\n        - Connection timed out after ${CONNECTION_TIMEOUT/1000} seconds`;
         message += '\n        - Check if Supabase is running and reachable at the configured URL';
+      } else if (result.suggestDirectUrl) {
+        message += `\n        - Received proxy error. Consider switching to the direct URL instead`;
+        message += '\n        - Go to settings and disable reverse proxy to use https://supabase.techlinx.se directly';
       } else {
         message += `\n        - Make sure your Supabase instance is running at ${supabaseUrl}`;
         message += '\n        - Check if the database table \'fortnox_credentials\' exists';

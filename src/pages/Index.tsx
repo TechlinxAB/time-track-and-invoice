@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { testSupabaseConnection, getConnectionDetails } from "../lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -11,12 +12,14 @@ const Index = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [connectionInfo, setConnectionInfo] = useState(() => getConnectionDetails());
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isProxyError, setIsProxyError] = useState(false);
 
   useEffect(() => {
     const checkConnection = async () => {
       try {
         setConnectionStatus("checking");
         setErrorMessage(null);
+        setIsProxyError(false);
         
         const result = await testSupabaseConnection();
         
@@ -29,6 +32,11 @@ const Index = () => {
           } else {
             setConnectionStatus("error");
             setErrorMessage(result.error || "Could not connect to Supabase");
+            
+            // Check if this is a proxy error
+            if (result.suggestDirectUrl) {
+              setIsProxyError(true);
+            }
           }
           
           return;
@@ -81,6 +89,17 @@ const Index = () => {
       setTimeout(() => window.location.reload(), 1000);
     }
   };
+  
+  const handleSwitchToDirectUrl = () => {
+    localStorage.setItem('use_reverse_proxy', 'false');
+    
+    toast({
+      title: "Switching to Direct URL",
+      description: "Connecting directly to https://supabase.techlinx.se...",
+    });
+    
+    setTimeout(() => window.location.reload(), 1000);
+  };
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -100,6 +119,7 @@ const Index = () => {
               <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
               {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
+              <p><strong>Direct Supabase URL:</strong> {connectionInfo.directUrl}</p>
             </div>
           </>
         )}
@@ -121,7 +141,15 @@ const Index = () => {
                 ? `Connection attempt timed out after ${connectionInfo.connectionTimeout/1000} seconds. Supabase might be unreachable.`
                 : `We couldn't connect to ${connectionInfo.url}.`}
             </p>
-                        
+            
+            {isProxyError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>
+                  The reverse proxy appears to be misconfigured. Try connecting directly to Supabase instead.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="mt-2 text-xs bg-gray-100 p-3 rounded text-left mb-4">
               <p><strong>Environment:</strong> {connectionInfo.environment}</p>
               <p><strong>URL:</strong> {connectionInfo.url}</p>
@@ -131,7 +159,7 @@ const Index = () => {
               <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
               {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
-              <p><strong>Direct Supabase URL:</strong> https://supabase.techlinx.se</p>
+              <p><strong>Direct Supabase URL:</strong> {connectionInfo.directUrl}</p>
               {connectionInfo.nginxPath && (
                 <p className="mt-2 text-orange-700">
                   <strong>Nginx Error Log:</strong> {connectionInfo.nginxPath}
@@ -153,6 +181,16 @@ const Index = () => {
               >
                 {isRetrying ? "Retrying..." : "Retry Connection"}
               </Button>
+              
+              {isProxyError && connectionInfo.reverseProxy && (
+                <Button 
+                  variant="destructive"
+                  className="px-4 py-2 rounded w-full"
+                  onClick={handleSwitchToDirectUrl}
+                >
+                  Use Direct URL Instead
+                </Button>
+              )}
               
               <Button 
                 variant={localStorage.getItem('use_reverse_proxy') === 'true' ? "default" : "outline"}
