@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { 
@@ -43,6 +43,12 @@ const Activities = () => {
     accountNumber: "",
   });
 
+  useEffect(() => {
+    return () => {
+      document.body.style.pointerEvents = '';
+    };
+  }, []);
+
   const handleOpenDialog = (activity?: Activity) => {
     if (activity) {
       setEditingActivity(activity);
@@ -67,6 +73,13 @@ const Activities = () => {
     setDialogOpen(true);
   };
 
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setTimeout(() => {
+      document.body.style.pointerEvents = '';
+    }, 100);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -79,7 +92,7 @@ const Activities = () => {
       addActivity(formData);
     }
     
-    setDialogOpen(false);
+    handleCloseDialog();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,7 +112,17 @@ const Activities = () => {
   const handleDelete = (id: string) => {
     deleteActivity(id);
   };
-  
+
+  const handleOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+    
+    if (!open) {
+      setTimeout(() => {
+        document.body.style.pointerEvents = '';
+      }, 100);
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
@@ -181,8 +204,13 @@ const Activities = () => {
         </CardContent>
       </Card>
       
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
+        <DialogContent 
+          className="sm:max-w-[425px]"
+          onPointerDownOutside={(e) => {
+            e.preventDefault();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{editingActivity ? "Edit Activity" : "Add Activity"}</DialogTitle>
             <DialogDescription>
@@ -256,7 +284,11 @@ const Activities = () => {
             )}
             
             <DialogFooter className="pt-4">
-              <Button variant="outline" type="button" onClick={() => setDialogOpen(false)}>
+              <Button 
+                variant="outline" 
+                type="button" 
+                onClick={handleCloseDialog}
+              >
                 Cancel
               </Button>
               <Button 

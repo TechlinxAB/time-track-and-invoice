@@ -23,10 +23,13 @@ const TimeEntriesList = ({ date }: TimeEntriesListProps) => {
   };
   
   const handleCloseModal = () => {
-    // Use setTimeout to ensure the DOM is updated properly
+    // First set the modal to close
+    setEditingEntry(null);
+    
+    // Then ensure pointer events are restored with a delay
     setTimeout(() => {
-      setEditingEntry(null);
-    }, 50);
+      document.body.style.pointerEvents = '';
+    }, 150); // Longer delay to ensure animation completes
   };
 
   // Clean up any lingering styles when component unmounts
@@ -35,6 +38,16 @@ const TimeEntriesList = ({ date }: TimeEntriesListProps) => {
       document.body.style.pointerEvents = '';
     };
   }, []);
+  
+  // Add effect to ensure document state is reset when editingEntry changes
+  useEffect(() => {
+    if (!editingEntry) {
+      // When modal is closed, ensure pointer-events are reset
+      setTimeout(() => {
+        document.body.style.pointerEvents = '';
+      }, 150);
+    }
+  }, [editingEntry]);
 
   return (
     <div className="card-glass rounded-xl overflow-hidden animate-fade-in">
