@@ -115,11 +115,25 @@ export const testSupabaseConnection = async () => {
             // Try to parse as JSON but don't fail if it's not valid JSON
             const data = text.trim() ? JSON.parse(text) : {};
             console.log('Health check successful with path:', path);
-            return { success: true, path, data, timeout: false };
+            return { 
+              success: true, 
+              path, 
+              data, 
+              timeout: false,
+              suggestReverseProxy: false,
+              autoSwitchToDirectUrl: false
+            };
           } catch (e) {
             // If it's not JSON but the response was OK, we'll count it as a success
             console.log('Non-JSON but valid response from path:', path);
-            return { success: true, path, text, timeout: false };
+            return { 
+              success: true, 
+              path, 
+              text, 
+              timeout: false,
+              suggestReverseProxy: false,
+              autoSwitchToDirectUrl: false
+            };
           }
         }
         
@@ -141,10 +155,15 @@ export const testSupabaseConnection = async () => {
     console.error(`Supabase connection ${isTimeout ? 'timed out' : 'failed'}:`, errorMessage);
     console.error('Full error object:', err);
     
+    // Determine if we should suggest switching methods
+    const reverseProxyEnabled = localStorage.getItem('use_reverse_proxy') !== 'false';
+    
     return { 
       success: false, 
       error: errorMessage, 
-      timeout: isTimeout 
+      timeout: isTimeout,
+      suggestReverseProxy: !reverseProxyEnabled && !isTimeout,  
+      autoSwitchToDirectUrl: reverseProxyEnabled && !isTimeout
     };
   }
 };
@@ -176,11 +195,20 @@ testSupabaseConnection()
 
 // Simplified connection details function
 export const getConnectionDetails = () => {
+  const reverseProxy = localStorage.getItem('use_reverse_proxy') !== 'false';
+  const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
+  const usingProxy = supabaseUrl.includes(window.location.hostname);
+  
   return {
     url: supabaseUrl,
     environment: currentDomain === 'localhost' ? 'Development' : 'Production',
     protocol: supabaseUrl.split(':')[0],
     pageProtocol: window.location.protocol,
     connectionTimeout: CONNECTION_TIMEOUT,
+    directUrl: directSupabaseUrl,
+    usingProxy: usingProxy,
+    reverseProxy: reverseProxy,
+    reverseProxyPath: reverseProxyPath,
+    nginxPath: '/var/log/nginx/freelancer-crm-error.log'
   };
 };

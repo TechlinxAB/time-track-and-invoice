@@ -1,22 +1,51 @@
 
 import { useState, memo } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, LogOut, Search } from "lucide-react";
 import Navigation from "./Navigation";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const Layout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   
   // Extract the page name from the current path
   const getPageTitle = () => {
     const path = location.pathname;
     if (path === '/') return 'Dashboard';
-    return path.substring(1).split('-').map(word => 
+    if (path === '/dashboard') return 'Dashboard';
+    
+    // Remove the leading slash and split by additional slashes
+    const segments = path.substring(1).split('/');
+    
+    // Take the first segment and format it
+    return segments[0].split('-').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
+  };
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been signed out successfully",
+      });
+      navigate('/login');
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast({
+        title: "Error",
+        description: "There was a problem signing out",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -50,6 +79,7 @@ const Layout = () => {
         {/* Footer */}
         <div className="p-4 border-t border-border mt-auto">
           <button 
+            onClick={handleSignOut}
             className={cn(
               "w-full flex items-center py-2 px-3 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-all duration-200",
               collapsed && "justify-center"
@@ -83,7 +113,9 @@ const Layout = () => {
             </div>
           </div>
         </div>
-        <Outlet />
+        <div className="p-6">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

@@ -3,9 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
-
-// Define user roles
-export type UserRole = 'admin' | 'manager' | 'user';
+import { hasPermission as checkPermission, UserRole, PermissionAction } from '@/lib/permissions';
 
 // User profile interface
 export interface UserProfile {
@@ -26,7 +24,7 @@ interface UserContextType {
   profile: UserProfile | null;
   isProfileLoading: boolean;
   updateProfile: (data: Partial<UserProfile>) => Promise<boolean>;
-  hasPermission: (action: string) => boolean;
+  hasPermission: (action: PermissionAction) => boolean;
   updateSettings: (settings: Partial<UserProfile['settings']>) => Promise<boolean>;
 }
 
@@ -39,28 +37,6 @@ const defaultUserContext: UserContextType = {
 };
 
 const UserContext = createContext<UserContextType>(defaultUserContext);
-
-// Role-based permissions
-const permissions = {
-  admin: [
-    'manage_users',
-    'manage_settings',
-    'manage_clients',
-    'manage_activities',
-    'manage_products',
-    'manage_invoices',
-    'track_time',
-    'delete_data',
-  ],
-  manager: [
-    'manage_clients',
-    'manage_activities',
-    'manage_products',
-    'manage_invoices',
-    'track_time',
-  ],
-  user: ['track_time'],
-};
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -86,13 +62,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('id', user.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error loading profile:', error);
-          toast({
-            title: "Profile Error",
-            description: "Failed to load your profile",
-            variant: "destructive"
-          });
+        if (error) {
+          // Only show error if it's not a "no rows returned" error
+          if (error.code !== 'PGRST116') {
+            console.error('Error loading profile:', error);
+            toast({
+              title: "Profile Error",
+              description: "Failed to load your profile. Creating default profile.",
+              variant: "destructive"
+            });
+          }
         }
 
         if (data) {
@@ -123,18 +102,38 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Create the profile in the database (ignore errors for now if table doesn't exist)
           try {
-            await supabase.from('profiles').upsert({
+            const { error: upsertError } = await supabase.from('profiles').upsert({
               id: user.id,
               display_name: newProfile.displayName,
               role: newProfile.role,
               updated_at: new Date().toISOString(),
             });
+            
+            if (upsertError) {
+              console.error('Error creating profile:', upsertError);
+            }
           } catch (err) {
             console.log('Could not create profile, likely profiles table doesn\'t exist yet');
           }
         }
       } catch (err) {
         console.error('Unexpected error loading profile:', err);
+        
+        // Create a fallback profile
+        const fallbackProfile = {
+          id: user.id,
+          email: user.email || '',
+          displayName: user.email?.split('@')[0] || 'User',
+          role: 'user' as UserRole
+        };
+        
+        setProfile(fallbackProfile);
+        
+        toast({
+          title: "Fallback Profile Created",
+          description: "Could not load your profile from the database. Using default values.",
+          variant: "warning"
+        });
       } finally {
         setIsProfileLoading(false);
       }
@@ -202,11 +201,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Check if user has permission for an action
-  const hasPermission = (action: string): boolean => {
+  const hasPermission = (action: PermissionAction): boolean => {
     if (!profile) return false;
-    
-    const rolePermissions = permissions[profile.role] || [];
-    return rolePermissions.includes(action);
+    return checkPermission(profile.role, action);
   };
 
   const contextValue = {

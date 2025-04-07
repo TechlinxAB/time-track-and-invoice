@@ -52,18 +52,20 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Index />} />
             
-            <Route path="/dashboard" element={
+            {/* Change the layout to be at the root level with nested routes */}
+            <Route element={
               <ProtectedRoute>
                 <Layout />
               </ProtectedRoute>
             }>
               <Route index element={<Dashboard />} />
-              <Route path="time-tracking" element={<TimeTracking />} />
-              <Route path="invoicing" element={<Invoicing />} />
-              <Route path="clients" element={<Clients />} />
-              <Route path="activities" element={<Activities />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="account" element={<Account />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/time-tracking" element={<TimeTracking />} />
+              <Route path="/invoicing" element={<Invoicing />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/activities" element={<Activities />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/account" element={<Account />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
