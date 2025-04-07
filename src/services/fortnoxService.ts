@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { toast } from "sonner";
 
@@ -6,7 +7,141 @@ export interface FortnoxCredentials {
   clientSecret: string;
   accessToken?: string;
   refreshToken?: string;
+  connectionStatus?: 'connected' | 'disconnected' | 'pending';
 }
+
+// Generate a random state for OAuth security
+const generateRandomState = () => {
+  return Math.random().toString(36).substring(2, 15) + 
+         Math.random().toString(36).substring(2, 15);
+};
+
+// Store the state in localStorage for verification when the user returns
+const storeOAuthState = (state: string) => {
+  localStorage.setItem('fortnox_oauth_state', state);
+  localStorage.setItem('fortnox_oauth_timestamp', Date.now().toString());
+};
+
+// Get and validate the stored state
+const getStoredOAuthState = () => {
+  const state = localStorage.getItem('fortnox_oauth_state');
+  const timestamp = Number(localStorage.getItem('fortnox_oauth_timestamp') || '0');
+  const now = Date.now();
+  
+  // State is valid for 10 minutes
+  if (state && timestamp && (now - timestamp < 10 * 60 * 1000)) {
+    return state;
+  }
+  
+  return null;
+};
+
+// Clear stored OAuth state
+const clearOAuthState = () => {
+  localStorage.removeItem('fortnox_oauth_state');
+  localStorage.removeItem('fortnox_oauth_timestamp');
+};
+
+// Initiate OAuth flow to connect with Fortnox
+export const initiateFortnoxOAuth = (clientId: string, redirectUri: string) => {
+  try {
+    // Generate and store a random state for security
+    const state = generateRandomState();
+    storeOAuthState(state);
+    
+    // For Fortnox, we need to construct the proper authorization URL
+    // Note: This is a simplified example - real Fortnox API might have different parameters
+    const authUrl = new URL('https://apps.fortnox.se/oauth-v1/auth');
+    authUrl.searchParams.append('client_id', clientId);
+    authUrl.searchParams.append('redirect_uri', redirectUri);
+    authUrl.searchParams.append('scope', 'invoice company customer project'); // Adjust scopes as needed
+    authUrl.searchParams.append('state', state);
+    authUrl.searchParams.append('response_type', 'code');
+    
+    // Open the authorization URL in a new tab/window
+    window.open(authUrl.toString(), '_blank');
+    
+    return true;
+  } catch (error) {
+    console.error('Error initiating Fortnox OAuth:', error);
+    toast.error('Failed to initiate Fortnox connection');
+    return false;
+  }
+};
+
+// Handle OAuth callback and exchange code for tokens
+export const handleFortnoxOAuthCallback = async (
+  code: string, 
+  state: string, 
+  clientId: string, 
+  clientSecret: string, 
+  redirectUri: string
+): Promise<boolean> => {
+  try {
+    // Verify state matches what we stored
+    const storedState = getStoredOAuthState();
+    if (!storedState || storedState !== state) {
+      toast.error('Invalid OAuth state, please try again');
+      return false;
+    }
+    
+    // Clear the stored state
+    clearOAuthState();
+    
+    // Exchange auth code for tokens - this should be done server-side
+    // For frontend demo, we'll simulate the exchange
+    // In production, use Supabase Edge Function for this step
+    
+    const tokenResponse = await fetch('https://apps.fortnox.se/oauth-v1/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+      },
+      body: new URLSearchParams({
+        'grant_type': 'authorization_code',
+        'code': code,
+        'redirect_uri': redirectUri
+      }).toString()
+    });
+    
+    if (!tokenResponse.ok) {
+      throw new Error(`Token exchange failed: ${tokenResponse.statusText}`);
+    }
+    
+    const tokenData = await tokenResponse.json();
+    
+    // Save tokens to Supabase
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !userData?.user) {
+      throw new Error('Not authenticated');
+    }
+    
+    const { error } = await supabase.from('fortnox_credentials').upsert(
+      { 
+        user_id: userData.user.id,
+        client_id: clientId,
+        client_secret: clientSecret,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        connection_status: 'connected'
+      },
+      { onConflict: 'user_id' }
+    );
+    
+    if (error) {
+      throw new Error(`Failed to save tokens: ${error.message}`);
+    }
+    
+    toast.success('Successfully connected to Fortnox!');
+    return true;
+  } catch (error) {
+    console.error('Error handling Fortnox OAuth callback:', error);
+    toast.error('Failed to complete Fortnox connection');
+    return false;
+  }
+};
 
 export const saveFortnoxCredentials = async (credentials: FortnoxCredentials): Promise<boolean> => {
   try {
@@ -24,7 +159,8 @@ export const saveFortnoxCredentials = async (credentials: FortnoxCredentials): P
         client_id: credentials.clientId,
         client_secret: credentials.clientSecret,
         access_token: credentials.accessToken || null,
-        refresh_token: credentials.refreshToken || null
+        refresh_token: credentials.refreshToken || null,
+        connection_status: credentials.connectionStatus || 'disconnected'
       },
       { onConflict: 'user_id' }
     );
@@ -55,7 +191,7 @@ export const getFortnoxCredentials = async (): Promise<FortnoxCredentials | null
     
     const { data, error } = await supabase
       .from('fortnox_credentials')
-      .select('client_id, client_secret, access_token, refresh_token')
+      .select('client_id, client_secret, access_token, refresh_token, connection_status')
       .eq('user_id', userData.user.id)
       .single();
     
@@ -69,6 +205,7 @@ export const getFortnoxCredentials = async (): Promise<FortnoxCredentials | null
       clientSecret: data.client_secret,
       accessToken: data.access_token || undefined,
       refreshToken: data.refresh_token || undefined,
+      connectionStatus: data.connection_status || 'disconnected'
     };
   } catch (error) {
     console.error('Error getting Fortnox credentials:', error);
@@ -142,4 +279,24 @@ export const exportInvoiceToFortnox = async (invoiceData: any): Promise<{ succes
       error: error instanceof Error ? error.message : 'Unknown error' 
     };
   }
+};
+
+// Create a component to handle the Fortnox OAuth callback
+export const createFortnoxOAuthCallback = () => {
+  // This would need to be implemented in a component that handles the OAuth redirect
+  console.log('OAuth callback handler ready');
+};
+
+// Check if the current URL contains OAuth callback parameters
+export const checkForOAuthCallback = () => {
+  // This should be called when the app initializes to check for callback params
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const state = urlParams.get('state');
+  
+  if (code && state) {
+    return { code, state };
+  }
+  
+  return null;
 };

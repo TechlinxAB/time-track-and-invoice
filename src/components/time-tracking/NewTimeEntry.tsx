@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import {
@@ -23,6 +24,7 @@ import { z } from "zod";
 import { formatDate, calculateDuration } from "@/lib/date-utils";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import { TimeInput } from "@/components/ui/time-input";
 
 interface NewTimeEntryProps {
   date: Date;
@@ -211,19 +213,19 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Time fields */}
+            {/* Time fields - Now using our enhanced TimeInput component */}
             <FormField
               control={form.control}
               name="startTime"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>Time From</FormLabel>
                   <FormControl>
-                    <input
+                    <TimeInput
                       {...field}
-                      className="input-time w-full"
-                      placeholder="HH:MM"
+                      onChange={field.onChange}
                       disabled={isSubmitting}
+                      error={!!fieldState.error}
                     />
                   </FormControl>
                   <FormMessage />
@@ -234,15 +236,15 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
             <FormField
               control={form.control}
               name="endTime"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>Time To</FormLabel>
                   <FormControl>
-                    <input
+                    <TimeInput
                       {...field}
-                      className="input-time w-full"
-                      placeholder="HH:MM"
+                      onChange={field.onChange}
                       disabled={isSubmitting}
+                      error={!!fieldState.error}
                     />
                   </FormControl>
                   <FormMessage />

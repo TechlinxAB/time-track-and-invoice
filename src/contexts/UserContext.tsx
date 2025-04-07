@@ -1,220 +1,255 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from './AuthContext';
-import { toast } from '@/hooks/use-toast';
-import { hasPermission as checkPermission, UserRole, PermissionAction } from '@/lib/permissions';
+import { toast } from 'sonner';
 
-// User profile interface
-export interface UserProfile {
+export type UserRole = 'admin' | 'manager' | 'user';
+
+interface UserProfile {
   id: string;
   email: string;
   displayName: string;
   role: UserRole;
-  avatar?: string;
-  settings?: {
-    theme?: 'light' | 'dark' | 'system';
-    notifications?: boolean;
-    primaryColor?: string;
-    secondaryColor?: string;
-  };
+  avatar?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
 }
 
-interface UserContextType {
+interface ProfileWithPermissions {
   profile: UserProfile | null;
-  isProfileLoading: boolean;
-  updateProfile: (data: Partial<UserProfile>) => Promise<boolean>;
-  hasPermission: (action: PermissionAction) => boolean;
-  updateSettings: (settings: Partial<UserProfile['settings']>) => Promise<boolean>;
+  isLoading: boolean;
+  roles: { [key: string]: boolean };
+  canAccessRoute: (route: string) => boolean;
+  canPerformAction: (action: string) => boolean;
+  refreshUserProfile: () => Promise<void>;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
 }
 
-const defaultUserContext: UserContextType = {
-  profile: null,
-  isProfileLoading: true,
-  updateProfile: async () => false,
-  hasPermission: () => false,
-  updateSettings: async () => false,
-};
+interface UserProviderProps {
+  children: ReactNode;
+}
 
-const UserContext = createContext<UserContextType>(defaultUserContext);
+// Create context
+const UserContext = createContext<ProfileWithPermissions | undefined>(undefined);
 
-export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+// Define a provider
+export const UserProvider = ({ children }: UserProviderProps) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load user profile
-  useEffect(() => {
-    async function loadProfile() {
-      if (!user) {
-        setProfile(null);
-        setIsProfileLoading(false);
-        return;
-      }
+  // Role-based permissions
+  const roles = {
+    isAdmin: profile?.role === 'admin',
+    isManager: profile?.role === 'admin' || profile?.role === 'manager',
+    isUser: !!profile,
+  };
 
-      try {
-        setIsProfileLoading(true);
-        
-        // First check if a profile exists in the 'profiles' table
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (error) {
-          // Only show error if it's not a "no rows returned" error
-          if (error.code !== 'PGRST116') {
-            console.error('Error loading profile:', error);
-            toast({
-              title: "Profile Error",
-              description: "Failed to load your profile. Creating default profile.",
-              variant: "destructive"
-            });
-          }
-        }
-
-        if (data) {
-          // Profile exists
-          setProfile({
-            id: user.id,
-            email: user.email || '',
-            displayName: data.display_name || user.email?.split('@')[0] || 'User',
-            role: data.role || 'user',
-            avatar: data.avatar_url,
-            settings: data.settings || {},
-          });
-        } else {
-          // No profile yet, create default one
-          const newProfile = {
-            id: user.id,
-            email: user.email || '',
-            displayName: user.email?.split('@')[0] || 'User',
-            role: 'user' as UserRole,
-          };
-          
-          // For demo purposes, if this is the first user, make them admin
-          if (user.email === 'admin@example.com') {
-            newProfile.role = 'admin';
-          }
-          
-          setProfile(newProfile);
-          
-          // Create the profile in the database (ignore errors for now if table doesn't exist)
-          try {
-            const { error: upsertError } = await supabase.from('profiles').upsert({
-              id: user.id,
-              display_name: newProfile.displayName,
-              role: newProfile.role,
-              updated_at: new Date().toISOString(),
-            });
-            
-            if (upsertError) {
-              console.error('Error creating profile:', upsertError);
-            }
-          } catch (err) {
-            console.log('Could not create profile, likely profiles table doesn\'t exist yet');
-          }
-        }
-      } catch (err) {
-        console.error('Unexpected error loading profile:', err);
-        
-        // Create a fallback profile
-        const fallbackProfile = {
-          id: user.id,
-          email: user.email || '',
-          displayName: user.email?.split('@')[0] || 'User',
-          role: 'user' as UserRole
-        };
-        
-        setProfile(fallbackProfile);
-        
-        toast({
-          title: "Fallback Profile Created",
-          description: "Could not load your profile from the database. Using default values.",
-          variant: "warning"
-        });
-      } finally {
-        setIsProfileLoading(false);
-      }
+  // Route access control
+  const canAccessRoute = (route: string): boolean => {
+    // Admin can access everything
+    if (roles.isAdmin) return true;
+    
+    // Route-specific permissions
+    switch (route) {
+      case '/settings/admin':
+        return roles.isAdmin;
+      case '/invoicing':
+      case '/clients':
+      case '/activities': 
+        return roles.isManager;
+      case '/time-tracking':
+      case '/dashboard':
+      case '/account':
+        return roles.isUser;
+      default:
+        return roles.isUser;
     }
+  };
 
-    loadProfile();
-  }, [user]);
+  // Action permissions
+  const canPerformAction = (action: string): boolean => {
+    // Admin can do everything
+    if (roles.isAdmin) return true;
+    
+    // Action-specific permissions
+    switch (action) {
+      case 'exportInvoice':
+      case 'createClient':
+      case 'createActivity':
+        return roles.isManager;
+      case 'createTimeEntry':
+      case 'editTimeEntry':
+        return roles.isUser;
+      default:
+        return false;
+    }
+  };
 
   // Update user profile
-  const updateProfile = async (data: Partial<UserProfile>): Promise<boolean> => {
-    if (!user || !profile) return false;
+  const updateUserProfile = async (updates: Partial<UserProfile>): Promise<boolean> => {
+    if (!profile) {
+      toast.error("You must be logged in to update profile");
+      return false;
+    }
 
     try {
-      // Convert profile data to database format
-      const dbData: any = {};
-      
-      if (data.displayName) dbData.display_name = data.displayName;
-      if (data.role) dbData.role = data.role;
-      if (data.avatar) dbData.avatar_url = data.avatar;
-      if (data.settings) dbData.settings = { ...profile.settings, ...data.settings };
-      
-      dbData.updated_at = new Date().toISOString();
-
-      // Update in Supabase
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, ...dbData });
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id);
 
       if (error) {
-        console.error('Error updating profile:', error);
-        toast({
-          title: "Update Failed",
-          description: error.message,
-          variant: "destructive"
-        });
-        return false;
+        throw error;
       }
 
       // Update local state
-      setProfile({
-        ...profile,
-        ...data,
-        settings: data.settings ? { ...profile.settings, ...data.settings } : profile.settings
-      });
-
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been updated successfully",
-      });
+      setProfile(prev => prev ? { ...prev, ...updates } : null);
+      
+      toast.success("Profile updated successfully");
       return true;
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      toast({
-        title: "Update Failed",
-        description: "An unexpected error occurred",
-        variant: "destructive"
-      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error("Profile update failed");
       return false;
     }
   };
 
-  // Update user settings
-  const updateSettings = async (settings: Partial<UserProfile['settings']>): Promise<boolean> => {
-    return updateProfile({ settings: { ...profile?.settings, ...settings } });
+  // Function to refresh user profile
+  const refreshUserProfile = async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        setProfile(null);
+        console.error('Error getting user:', userError);
+        return;
+      }
+
+      // Get user profile
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        toast({
+          variant: "destructive",
+          title: "Profile error",
+          description: "Failed to load profile data"
+        });
+        return;
+      }
+
+      if (data) {
+        // Transform the data to match our UserProfile type
+        setProfile({
+          id: data.id,
+          email: data.email,
+          displayName: data.display_name,
+          role: data.role || 'user',
+          avatar: data.avatar_url,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at
+        });
+      } else {
+        // If no profile exists, create one
+        const newProfile = {
+          id: user.id,
+          email: user.email || '',
+          display_name: user.email?.split('@')[0] || 'User',
+          role: 'user',
+          avatar_url: null,
+          created_at: new Date().toISOString(),
+        };
+
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert([newProfile]);
+
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+          toast({
+            variant: "destructive",
+            title: "Profile error",
+            description: "Failed to create profile"
+          });
+          return;
+        }
+
+        // Set the new profile in state
+        setProfile({
+          id: newProfile.id,
+          email: newProfile.email,
+          displayName: newProfile.display_name,
+          role: 'user',
+          avatar: null,
+          createdAt: newProfile.created_at,
+        });
+      }
+    } catch (error) {
+      console.error('Unexpected error getting profile:', error);
+      toast({
+        variant: "destructive",
+        title: "Profile error",
+        description: "An unexpected error occurred"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Check if user has permission for an action
-  const hasPermission = (action: PermissionAction): boolean => {
-    if (!profile) return false;
-    return checkPermission(profile.role, action);
-  };
+  // Load profile on mount and auth changes
+  useEffect(() => {
+    const loadProfile = async () => {
+      await refreshUserProfile();
+    };
 
-  const contextValue = {
-    profile,
-    isProfileLoading,
-    updateProfile,
-    hasPermission,
-    updateSettings,
-  };
+    loadProfile();
 
-  return <UserContext.Provider value={contextValue}>{children}</UserContext.Provider>;
+    // Subscribe to auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN') {
+        await refreshUserProfile();
+      } else if (event === 'SIGNED_OUT') {
+        setProfile(null);
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  return (
+    <UserContext.Provider 
+      value={{ 
+        profile, 
+        isLoading, 
+        roles, 
+        canAccessRoute, 
+        canPerformAction, 
+        refreshUserProfile,
+        updateUserProfile
+      }}
+    >
+      {children}
+    </UserContext.Provider>
+  );
 };
 
-export const useUser = () => useContext(UserContext);
+// Custom hook
+export const useUser = () => {
+  const context = useContext(UserContext);
+  if (context === undefined) {
+    throw new Error('useUser must be used within a UserProvider');
+  }
+  return context;
+};
