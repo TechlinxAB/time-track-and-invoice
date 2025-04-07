@@ -59,9 +59,21 @@ const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
     },
   });
 
+  // Handle dialog close with proper cleanup
   const handleClose = () => {
     setIsOpen(false);
-    setTimeout(onClose, 300); // Allow animation to complete
+    // Allow animation to complete before removing from DOM
+    setTimeout(() => {
+      onClose();
+    }, 300);
+  };
+
+  // Handle open state change from Dialog component
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      handleClose();
+    }
+    setIsOpen(open);
   };
 
   const onSubmit = (data: FormValues) => {
@@ -77,7 +89,7 @@ const EditTimeEntryModal = ({ entry, onClose }: EditTimeEntryModalProps) => {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit Time Entry</DialogTitle>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import {
@@ -20,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { formatDate } from "@/lib/date-utils";
+import { formatDate, calculateDuration } from "@/lib/date-utils";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,6 +48,7 @@ type FormValues = z.infer<typeof formSchema>;
 const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => {
   const { clients, activities, addTimeEntry } = useAppContext();
   const [activityType, setActivityType] = useState<"hourly" | "fixed">("hourly");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -70,8 +72,23 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
     }
   }, [selectedActivityId, activities]);
 
-  const onSubmit = (data: FormValues) => {
+  // Safe close handler to prevent state issues
+  const handleClose = () => {
+    // Prevent closing during submission
+    if (isSubmitting) return;
+    
+    // Reset form and call parent close handler
+    form.reset();
+    onClose();
+  };
+
+  const onSubmit = async (data: FormValues) => {
     try {
+      setIsSubmitting(true);
+      
+      // Calculate duration for better UI feedback
+      const duration = calculateDuration(data.startTime, data.endTime);
+      
       const timeEntryData = {
         clientId: data.clientId,
         activityId: data.activityId,
@@ -79,15 +96,22 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
         endTime: data.endTime,
         description: data.description || "",
         date: formatDate(date),
+        duration,
         billable: true,
         invoiced: false
       };
       
+      // Add time entry
       addTimeEntry(timeEntryData);
-      onSuccessfulAdd();
+      
+      // Show success message and close form
       toast.success("Time entry added successfully");
+      onSuccessfulAdd();
     } catch (error) {
       toast.error("Failed to add time entry");
+      console.error("Error adding time entry:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -98,7 +122,8 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
         <Button
           variant="ghost"
           size="sm"
-          onClick={onClose}
+          onClick={handleClose}
+          disabled={isSubmitting}
           className="h-8 w-8 p-0"
         >
           <X size={18} />
@@ -118,6 +143,7 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
+                    disabled={isSubmitting}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -147,6 +173,7 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
+                    disabled={isSubmitting}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -183,6 +210,7 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
                       {...field}
                       className="input-time w-full"
                       placeholder="HH:MM"
+                      disabled={isSubmitting}
                     />
                   </FormControl>
                   <FormMessage />
@@ -201,6 +229,7 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
                       {...field}
                       className="input-time w-full"
                       placeholder="HH:MM"
+                      disabled={isSubmitting}
                     />
                   </FormControl>
                   <FormMessage />
@@ -221,6 +250,7 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
                     {...field}
                     placeholder="What did you do?"
                     className="h-24"
+                    disabled={isSubmitting}
                   />
                 </FormControl>
                 <FormMessage />
@@ -232,7 +262,8 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
             <Button 
               type="button" 
               variant="outline" 
-              onClick={onClose}
+              onClick={handleClose}
+              disabled={isSubmitting}
               className="mr-2"
             >
               Cancel
@@ -240,8 +271,9 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
             <Button 
               type="submit" 
               className="bg-success hover:bg-success/90 text-success-foreground"
+              disabled={isSubmitting}
             >
-              Save Time Entry
+              {isSubmitting ? "Saving..." : "Save Time Entry"}
             </Button>
           </div>
         </form>

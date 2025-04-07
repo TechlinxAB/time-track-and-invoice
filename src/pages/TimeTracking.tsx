@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { format } from "date-fns";
@@ -5,6 +6,7 @@ import { formatDate, formatDisplayDate, getDatesForCurrentWeek, getNextWeek, get
 import DateSelector from "@/components/time-tracking/DateSelector";
 import NewTimeEntry from "@/components/time-tracking/NewTimeEntry";
 import TimeEntriesList from "@/components/time-tracking/TimeEntriesList";
+
 const TimeTracking = () => {
   const {
     selectedDate,
@@ -12,14 +14,22 @@ const TimeTracking = () => {
   } = useAppContext();
   const [weekDates, setWeekDates] = useState(getDatesForCurrentWeek());
   const [isAddingEntry, setIsAddingEntry] = useState(false);
+
   const handlePrevWeek = () => {
     const prevWeek = getPreviousWeek(weekDates[0]);
     setWeekDates(prevWeek);
   };
+
   const handleNextWeek = () => {
     const nextWeek = getNextWeek(weekDates[0]);
     setWeekDates(nextWeek);
   };
+  
+  const handleCloseAddEntry = () => {
+    // Ensure we properly clean up when closing the add entry form
+    setIsAddingEntry(false);
+  };
+
   return <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Time Tracking</h1>
@@ -38,7 +48,7 @@ const TimeTracking = () => {
         <div className="md:col-span-9 space-y-6">
           {/* Time entry form */}
           <div className="card-glass rounded-xl p-6">
-            {isAddingEntry ? <NewTimeEntry date={selectedDate} onClose={() => setIsAddingEntry(false)} onSuccessfulAdd={() => setIsAddingEntry(false)} /> : <div className="flex flex-col items-center justify-center py-8 text-center">
+            {isAddingEntry ? <NewTimeEntry date={selectedDate} onClose={handleCloseAddEntry} onSuccessfulAdd={handleCloseAddEntry} /> : <div className="flex flex-col items-center justify-center py-8 text-center">
                 <h3 className="text-xl font-medium mb-2">Track your time</h3>
                 <p className="text-muted-foreground mb-4">
                   Add time entries for {formatDisplayDate(selectedDate)}
@@ -55,4 +65,5 @@ const TimeTracking = () => {
       </div>
     </div>;
 };
+
 export default TimeTracking;
