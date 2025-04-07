@@ -1,5 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
+import { toast } from '@/components/ui/use-toast';
 
 // These would typically come from your environment variables
 // For self-hosted Supabase, these would be your self-hosted instance URLs and keys
@@ -25,6 +26,11 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
       'x-application-name': 'freelancer-crm'
     },
   },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
 });
 
 // Test the connection when the app initializes
@@ -33,6 +39,14 @@ export const testSupabaseConnection = async () => {
     const { data, error } = await supabase.from('fortnox_credentials').select('count').limit(1);
     if (error) {
       console.error('Supabase connection test failed:', error.message);
+      
+      // Show toast notification for connection error
+      toast({
+        title: "Connection Error",
+        description: `Failed to connect to database: ${error.message}`,
+        variant: "destructive"
+      });
+      
       return { success: false, error: error.message };
     } else {
       console.log('Supabase connection successful');
@@ -41,6 +55,14 @@ export const testSupabaseConnection = async () => {
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Failed to connect to Supabase:', errorMessage);
+    
+    // Show toast notification for connection error
+    toast({
+      title: "Connection Error",
+      description: `Unable to reach Supabase: ${errorMessage}`,
+      variant: "destructive"
+    });
+    
     return { success: false, error: errorMessage };
   }
 };
@@ -82,6 +104,7 @@ if (supabaseUrl && supabaseKey) {
           - Verify VITE_SUPABASE_ANON_KEY is correct
           - Make sure your Supabase instance is running
           - Check if the database table 'fortnox_credentials' exists
+          - Check that VAULT_ENC_KEY is set and at least 32 characters long in your .env file
         `);
       }
     });

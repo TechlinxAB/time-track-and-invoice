@@ -125,8 +125,23 @@ openssl rand -base64 32
 
 5. **Update your .env file** with these values, and set appropriate PostgreSQL credentials.
 
-   - Make sure to set `VAULT_ENC_KEY` to the generated value above (this is required)
-   - Set appropriate PostgreSQL credentials for `POSTGRES_PASSWORD`
+   **IMPORTANT**: Make sure to set `VAULT_ENC_KEY` to the generated value from the previous step. This value MUST be at least 32 characters long or your Supabase services will fail to start properly.
+   
+   Example .env configuration:
+   ```
+   # PostgreSQL database
+   POSTGRES_PASSWORD=your_secure_password_here
+   
+   # JWT settings
+   JWT_SECRET=your_generated_jwt_secret_here
+   
+   # API Keys
+   ANON_KEY=your_generated_anon_key_here
+   SERVICE_ROLE_KEY=your_generated_service_role_key_here
+   
+   # Encryption key (REQUIRED, must be at least 32 chars)
+   VAULT_ENC_KEY=your_generated_vault_enc_key_here
+   ```
 
    **Important**: For older versions of Docker Compose (1.29.x), you need to modify the docker-compose.yml file to fix the environment variables:
 
@@ -151,7 +166,7 @@ docker-compose up -d
 docker-compose ps
 ```
 
-If any services failed to start, check the logs:
+If any services failed to start or show "unhealthy" status, check the logs:
 
 ```bash
 docker-compose logs <service-name>
@@ -160,6 +175,8 @@ docker-compose logs <service-name>
 Common issues:
 - Missing `VAULT_ENC_KEY` in .env file (must be at least 32 characters)
 - Docker Compose version compatibility (use quotes for boolean values)
+- Insufficient system resources (especially for smaller VPS instances)
+- Port conflicts with existing services
 
 ### Step 2: Set Up the Database Schema
 
@@ -331,14 +348,33 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+    
+    # Proxy WebSocket connections for realtime features
+    location /realtime/v1/ {
+        proxy_pass http://localhost:8080/realtime/v1/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket specific settings
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
 }
 ```
+
+Note: Be sure to replace "your-domain-or-ip" with your actual domain name or server IP address.
 
 6. **Enable the site and restart Nginx**:
 
 ```bash
 # Create a symbolic link to enable the site
 sudo ln -s /etc/nginx/sites-available/freelancer-crm.conf /etc/nginx/sites-enabled/
+
+# Remove default site to avoid conflicts (optional)
+sudo rm /etc/nginx/sites-enabled/default
 
 # Test the nginx configuration
 sudo nginx -t
@@ -450,28 +486,82 @@ cd ~/supabase/supabase/docker
 docker-compose logs -f
 ```
 
-2. **Check nginx logs**:
+2. **View specific service logs**:
 ```bash
-sudo tail -f /var/log/nginx/error.log
+# Check logs for specific services
+docker-compose logs db
+docker-compose logs rest
+docker-compose logs auth
+docker-compose logs realtime
 ```
 
-3. **Common Supabase Issues**:
+3. **Check for unhealthy services**:
+```bash
+docker-compose ps
+```
+
+If you see "(unhealthy)" status like `Up 29 seconds (unhealthy)` for any service:
+
+- Check the service's specific logs: `docker-compose logs realtime`
+- Restart the specific service: `docker-compose restart realtime`
+- Check the .env file for missing required variables
+- Verify the service has enough system resources (RAM, CPU)
+
+4. **Fixing the Realtime Service**:
+If you see `realtime-dev.supabase-realtime unhealthy` status:
+
+```bash
+# Check realtime service logs
+docker-compose logs realtime
+
+# Ensure VAULT_ENC_KEY is set and at least 32 characters
+nano .env
+
+# Restart the realtime service
+docker-compose restart realtime
+
+# If needed, restart all Supabase services
+docker-compose down
+docker-compose up -d
+```
+
+5. **Check nginx logs**:
+```bash
+sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/access.log
+```
+
+6. **Common Supabase Issues**:
    - Missing `VAULT_ENC_KEY`: Make sure your .env file contains a VAULT_ENC_KEY that is at least 32 characters long
    - Connection issues: Make sure the correct ports are exposed and not blocked by a firewall
    - Database errors: Check PostgreSQL logs with `docker-compose logs db`
+   - Insufficient resources: Supabase requires adequate CPU and RAM to run properly
 
-4. **Reset database password** (if needed):
+7. **Reset database password** (if needed):
 ```bash
 docker exec -it supabase_db_1 psql -U postgres
 ALTER USER postgres WITH PASSWORD 'new-password';
 ```
 
-5. **Restart all services**:
+8. **Restart all services**:
 ```bash
 # Navigate to the supabase/docker directory
 cd ~/supabase/supabase/docker
 docker-compose restart
 sudo systemctl restart nginx
+```
+
+9. **If all else fails, clean reinstall**:
+```bash
+# Stop and remove all Supabase containers
+cd ~/supabase/supabase/docker
+docker-compose down -v
+
+# Remove the Supabase directory
+cd ~/
+rm -rf ~/supabase
+
+# Start fresh with the installation steps from the beginning
 ```
 
 ## Support and Resources
@@ -480,3 +570,4 @@ sudo systemctl restart nginx
 - [Supabase Self-Hosting Guide](https://supabase.com/docs/guides/hosting/docker)
 - [Nginx Documentation](https://nginx.org/en/docs/)
 - [Docker Documentation](https://docs.docker.com/)
+

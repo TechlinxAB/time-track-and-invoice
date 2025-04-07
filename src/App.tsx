@@ -14,14 +14,23 @@ import Index from "./pages/Index";
 import { AppProvider } from "./contexts/AppContext";
 import { useAuth } from "./contexts/AuthContext";
 import { Navigate } from "react-router-dom";
+import { Toaster } from "@/components/ui/toaster";
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
-    // Could add a loading spinner here
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    // Show loading spinner during authentication check
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-success mb-2">TimeTracker</h1>
+          <p className="text-muted-foreground mb-4">Checking authentication...</p>
+          <div className="w-8 h-8 border-4 border-success/30 border-t-success rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    );
   }
   
   if (!user) {
@@ -53,6 +62,7 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+      <Toaster />
     </AppProvider>
   );
 }
