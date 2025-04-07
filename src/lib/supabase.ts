@@ -2,8 +2,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 
-// Check if we're using a reverse proxy path
-const useReverseProxy = localStorage.getItem('use_reverse_proxy') === 'true';
+// Check if we're using a reverse proxy path - default to true
+const useReverseProxy = localStorage.getItem('use_reverse_proxy') === null 
+  ? true 
+  : localStorage.getItem('use_reverse_proxy') === 'true';
 const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
 
 // Get the domain and protocol for production use

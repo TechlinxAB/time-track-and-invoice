@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { testSupabaseConnection, getConnectionDetails } from "../lib/supabase";
@@ -18,7 +17,6 @@ const Index = () => {
         setConnectionStatus("checking");
         setErrorMessage(null);
         
-        // Test Supabase connection on initial load
         const result = await testSupabaseConnection();
         
         if (!result.success) {
@@ -36,7 +34,6 @@ const Index = () => {
         }
         
         setConnectionStatus("success");
-        // Redirect to dashboard only if connection is successful
         navigate("/dashboard");
       } catch (error) {
         console.error("Error checking connection:", error);
