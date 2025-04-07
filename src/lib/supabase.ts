@@ -1,9 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 
-// Always default to direct URL since that's the most reliable method
-// We'll detect if we're on the internal network
-const useReverseProxy = localStorage.getItem('use_reverse_proxy') === 'true' ? true : false;
+// Default to using the reverse proxy for a more reliable connection
+const useReverseProxy = localStorage.getItem('use_reverse_proxy') !== 'false'; // Default to true unless explicitly set to false
 const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
 
 // Get the domain and protocol for detection
@@ -30,7 +29,7 @@ const isLikelyInternalNetwork = () => {
   return false;
 };
 
-// Set the direct Supabase URL as the default
+// Set the direct Supabase URL
 const directSupabaseUrl = 'https://supabase.techlinx.se';
 
 // Determine the Supabase URL based on configuration

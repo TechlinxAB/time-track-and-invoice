@@ -69,12 +69,12 @@ const Index = () => {
   };
   
   const handleReverseProxyToggle = () => {
-    const current = localStorage.getItem('use_reverse_proxy') === 'true';
+    const current = localStorage.getItem('use_reverse_proxy') === 'false';
     localStorage.setItem('use_reverse_proxy', (!current).toString());
     
     toast({
       title: "Connection Settings Changed",
-      description: "Reloading application with new settings...",
+      description: `${current ? "Enabling" : "Disabling"} reverse proxy and reloading application...`,
     });
     
     setTimeout(() => window.location.reload(), 1000);
@@ -223,16 +223,16 @@ const Index = () => {
               )}
               
               <Button 
-                variant={localStorage.getItem('use_reverse_proxy') === 'true' ? "default" : "outline"}
+                variant={!connectionInfo.reverseProxy ? "default" : "outline"}
                 className="px-4 py-2 rounded w-full"
                 onClick={handleReverseProxyToggle}
               >
-                {localStorage.getItem('use_reverse_proxy') === 'true' 
+                {connectionInfo.reverseProxy
                   ? "Disable Reverse Proxy" 
                   : "Enable Reverse Proxy"}
               </Button>
               
-              {localStorage.getItem('use_reverse_proxy') === 'true' && (
+              {connectionInfo.reverseProxy && (
                 <Button 
                   variant="outline"
                   className="px-4 py-2 rounded w-full"
