@@ -1,11 +1,12 @@
 
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
   Clock, FileText, LayoutDashboard, Users, Settings as SettingsIcon, 
   List, Calendar, User
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface NavItemProps {
   to: string;
@@ -47,6 +48,12 @@ interface NavigationProps {
   collapsed: boolean;
 }
 
+interface UserProfile {
+  name: string;
+  role: string;
+  avatarUrl: string | null;
+}
+
 const navigationItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/time-tracking", icon: Clock, label: "Time Tracking" },
@@ -58,20 +65,54 @@ const navigationItems = [
 
 const Navigation = memo(({ collapsed }: NavigationProps) => {
   const { pathname } = useLocation();
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    name: "John Doe",
+    role: "Freelancer",
+    avatarUrl: null
+  });
+
+  // Load user profile from localStorage on component mount
+  useEffect(() => {
+    const savedProfile = localStorage.getItem('userProfile');
+    if (savedProfile) {
+      try {
+        const parsedProfile = JSON.parse(savedProfile);
+        setUserProfile(parsedProfile);
+      } catch (e) {
+        console.error('Error parsing user profile from localStorage:', e);
+      }
+    }
+  }, []);
+
+  // Get initials for avatar fallback
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
 
   return (
     <nav className="flex-1 py-4 overflow-y-auto">
       <div className="px-3 mb-4">
         {!collapsed && (
-          <div className="flex items-center gap-3 mb-2 px-3">
-            <div className="h-9 w-9 rounded-full bg-success/20 flex items-center justify-center text-success font-medium">
-              <User size={16} />
-            </div>
+          <NavLink to="/account" className="flex items-center gap-3 mb-2 px-3 hover:bg-muted/30 py-2 rounded-lg transition-all duration-200">
+            <Avatar className="h-9 w-9 border border-border">
+              {userProfile.avatarUrl ? (
+                <AvatarImage src={userProfile.avatarUrl} alt={userProfile.name} />
+              ) : (
+                <AvatarFallback className="bg-success/20 text-success font-medium">
+                  {getInitials(userProfile.name)}
+                </AvatarFallback>
+              )}
+            </Avatar>
             <div className="flex flex-col">
-              <span className="text-sm font-medium">John Doe</span>
-              <span className="text-xs text-muted-foreground">Freelancer</span>
+              <span className="text-sm font-medium">{userProfile.name}</span>
+              <span className="text-xs text-muted-foreground">{userProfile.role}</span>
             </div>
-          </div>
+          </NavLink>
         )}
       </div>
       <div className="px-2">

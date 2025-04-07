@@ -1,84 +1,33 @@
 
-import React, { Suspense } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppProvider } from "./contexts/AppContext";
+import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
-import { Spinner } from "./components/ui/spinner"; // We'll create this component
+import Dashboard from "./pages/Dashboard";
+import TimeTracking from "./pages/TimeTracking";
+import Invoicing from "./pages/Invoicing";
+import Clients from "./pages/Clients";
+import Activities from "./pages/Activities";
+import Settings from "./pages/Settings";
+import Account from "./pages/Account";
+import NotFound from "./pages/NotFound";
+import { AppProvider } from "./contexts/AppContext";
 
-// Lazy load pages for better performance
-const Dashboard = React.lazy(() => import("./pages/Dashboard"));
-const TimeTracking = React.lazy(() => import("./pages/TimeTracking"));
-const Invoicing = React.lazy(() => import("./pages/Invoicing"));
-const Clients = React.lazy(() => import("./pages/Clients"));
-const Activities = React.lazy(() => import("./pages/Activities"));
-const Settings = React.lazy(() => import("./pages/Settings"));
-const NotFound = React.lazy(() => import("./pages/NotFound"));
-
-// Configure the query client with performance options
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30000, // 30 seconds
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+function App() {
+  return (
     <AppProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={
-                <Suspense fallback={<div className="flex items-center justify-center h-96"><Spinner /></div>}>
-                  <Dashboard />
-                </Suspense>
-              } />
-              <Route path="time-tracking" element={
-                <Suspense fallback={<div className="flex items-center justify-center h-96"><Spinner /></div>}>
-                  <TimeTracking />
-                </Suspense>
-              } />
-              <Route path="invoicing" element={
-                <Suspense fallback={<div className="flex items-center justify-center h-96"><Spinner /></div>}>
-                  <Invoicing />
-                </Suspense>
-              } />
-              <Route path="clients" element={
-                <Suspense fallback={<div className="flex items-center justify-center h-96"><Spinner /></div>}>
-                  <Clients />
-                </Suspense>
-              } />
-              <Route path="activities" element={
-                <Suspense fallback={<div className="flex items-center justify-center h-96"><Spinner /></div>}>
-                  <Activities />
-                </Suspense>
-              } />
-              <Route path="settings" element={
-                <Suspense fallback={<div className="flex items-center justify-center h-96"><Spinner /></div>}>
-                  <Settings />
-                </Suspense>
-              } />
-              <Route path="*" element={
-                <Suspense fallback={<div className="flex items-center justify-center h-96"><Spinner /></div>}>
-                  <NotFound />
-                </Suspense>
-              } />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="time-tracking" element={<TimeTracking />} />
+          <Route path="invoicing" element={<Invoicing />} />
+          <Route path="clients" element={<Clients />} />
+          <Route path="activities" element={<Activities />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="account" element={<Account />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
     </AppProvider>
-  </QueryClientProvider>
-);
+  );
+}
 
 export default App;
