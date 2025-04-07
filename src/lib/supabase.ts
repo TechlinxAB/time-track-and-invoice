@@ -30,4 +30,3 @@ const testSupabaseConnection = async () => {
 if (supabaseUrl && supabaseKey) {
   testSupabaseConnection();
 }
-
