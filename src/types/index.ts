@@ -1,3 +1,4 @@
+
 export interface Client {
   id: string;
   name: string;
@@ -5,6 +6,10 @@ export interface Client {
   company?: string;
   phone?: string;
   organizationNumber?: string; // Added for Swedish company identification
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
 }
 
 export interface Activity {
@@ -14,6 +19,17 @@ export interface Activity {
   isFixedPrice: boolean;
   fixedPrice?: number;
   accountNumber?: string; // Added for Swedish Fortnox kontnummer
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  accountNumber?: string; // For Swedish Fortnox kontnummer
+  unit?: string; // e.g., pcs, hours, etc.
+  sku?: string; // Stock Keeping Unit
+  inStock?: number;
 }
 
 export interface TimeEntry {
@@ -43,6 +59,7 @@ export interface Invoice {
 export interface InvoiceItem {
   id: string;
   timeEntryId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -73,4 +90,30 @@ export interface FortnoxApiResponse {
   success: boolean;
   error?: string;
   data?: any;
+}
+
+export interface UserSettings {
+  theme?: 'light' | 'dark' | 'system';
+  primaryColor?: string;
+  secondaryColor?: string;
+  logo?: string;
+  companyName?: string;
+  companyEmail?: string;
+  companyPhone?: string;
+  companyAddress?: string;
+  notifications?: {
+    email?: boolean;
+    app?: boolean;
+  };
+}
+
+export type UserRole = 'admin' | 'manager' | 'user';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  avatar?: string;
+  settings?: UserSettings;
 }

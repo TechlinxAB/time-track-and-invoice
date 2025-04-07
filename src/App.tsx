@@ -12,9 +12,12 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Index from "./pages/Index";
 import { AppProvider } from "./contexts/AppContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import { UserProvider } from "./contexts/UserContext";
 import { useAuth } from "./contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -42,28 +45,33 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   return (
-    <AppProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Index />} />
-        
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<Dashboard />} />
-          <Route path="time-tracking" element={<TimeTracking />} />
-          <Route path="invoicing" element={<Invoicing />} />
-          <Route path="clients" element={<Clients />} />
-          <Route path="activities" element={<Activities />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="account" element={<Account />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-      <Toaster />
-    </AppProvider>
+    <AuthProvider>
+      <UserProvider>
+        <AppProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Index />} />
+            
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Dashboard />} />
+              <Route path="time-tracking" element={<TimeTracking />} />
+              <Route path="invoicing" element={<Invoicing />} />
+              <Route path="clients" element={<Clients />} />
+              <Route path="activities" element={<Activities />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="account" element={<Account />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+          <SonnerToaster position="top-right" />
+          <Toaster />
+        </AppProvider>
+      </UserProvider>
+    </AuthProvider>
   );
 }
 
