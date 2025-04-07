@@ -24,6 +24,7 @@ const getBaseUrl = () => {
 };
 
 const effectiveSupabaseUrl = getBaseUrl();
+console.log('Using Supabase URL:', effectiveSupabaseUrl);
 
 if (!effectiveSupabaseUrl || !supabaseKey) {
   console.warn(
@@ -37,7 +38,8 @@ export const supabase = createClient(effectiveSupabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storageKey: 'freelancer-crm-auth'
   },
   global: {
     headers: {
@@ -51,14 +53,22 @@ export const supabase = createClient(effectiveSupabaseUrl, supabaseKey, {
   }
 });
 
+// Log all network requests in dev mode
+if (!isProduction) {
+  console.log('Development mode: Logging Supabase API requests');
+}
+
 // Test the connection when the app initializes
 export const testSupabaseConnection = async () => {
   try {
     console.log(`Testing Supabase connection to: ${effectiveSupabaseUrl}`);
     
+    // Try to fetch a simple piece of data
     const { data, error } = await supabase.from('fortnox_credentials').select('count').limit(1);
+    
     if (error) {
       console.error('Supabase connection test failed:', error.message, error.details);
+      console.error('Full error object:', JSON.stringify(error));
       
       // Show toast notification for connection error
       toast({
@@ -75,6 +85,7 @@ export const testSupabaseConnection = async () => {
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Failed to connect to Supabase:', errorMessage);
+    console.error('Full error object:', err);
     
     // Show toast notification for connection error
     toast({

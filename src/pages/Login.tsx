@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 const Login = () => {
   const { user, signIn, signUp } = useAuth();
@@ -15,6 +16,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
   // If user is already logged in, redirect to the dashboard
   if (user) {
@@ -24,20 +26,32 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorDetails(null);
 
     try {
+      console.log("Starting authentication process...");
+      console.log("Using Supabase URL:", (supabase as any).supabaseUrl);
+      
       let result;
 
       if (isSignUp) {
+        console.log("Attempting signup...");
         result = await signUp(email, password);
       } else {
+        console.log("Attempting login...");
         result = await signIn(email, password);
       }
 
+      console.log("Auth result:", result);
+
       if (!result.success) {
+        const errorMsg = result.error?.message || "Authentication failed";
+        console.error("Auth error:", errorMsg);
+        setErrorDetails(JSON.stringify(result.error, null, 2));
+        
         toast({
           title: "Authentication Failed",
-          description: result.error?.message || "Authentication failed",
+          description: errorMsg,
           variant: "destructive"
         });
       } else if (isSignUp) {
@@ -48,9 +62,13 @@ const Login = () => {
         });
       }
     } catch (error) {
+      console.error("Uncaught auth error:", error);
+      const errorMsg = error instanceof Error ? error.message : "An error occurred";
+      setErrorDetails(JSON.stringify(error, null, 2));
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred",
+        description: errorMsg,
         variant: "destructive"
       });
     } finally {
@@ -94,6 +112,13 @@ const Login = () => {
               />
             </div>
           </form>
+          
+          {errorDetails && (
+            <div className="mt-4 p-2 text-xs bg-red-50 border border-red-200 rounded overflow-auto max-h-28">
+              <p className="font-semibold text-destructive">Error Details:</p>
+              <pre className="whitespace-pre-wrap">{errorDetails}</pre>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <Button
