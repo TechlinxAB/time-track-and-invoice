@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info, AlertCircle } from "lucide-react";
+import { testSupabaseConnection } from "@/lib/supabase";
 import { 
   saveFortnoxCredentials, 
   getFortnoxCredentials,
@@ -35,18 +38,32 @@ const Settings = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{
+    checked: boolean;
+    connected: boolean;
+    error?: string;
+  }>({ checked: false, connected: false });
 
   useEffect(() => {
-    const loadFortnoxCredentials = async () => {
+    const loadData = async () => {
       setIsLoading(true);
-      const credentials = await getFortnoxCredentials();
-      if (credentials) {
-        setFortnoxSettings(credentials);
+      
+      // Check Supabase connection first
+      const connection = await testSupabaseConnection();
+      setConnectionStatus({ checked: true, connected: connection.success, error: connection.error });
+      
+      if (connection.success) {
+        // Load Fortnox credentials if connected
+        const credentials = await getFortnoxCredentials();
+        if (credentials) {
+          setFortnoxSettings(credentials);
+        }
       }
+      
       setIsLoading(false);
     };
     
-    loadFortnoxCredentials();
+    loadData();
   }, []);
 
   const handleCompanyInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,12 +94,22 @@ const Settings = () => {
     setIsTestingConnection(true);
     
     try {
-      setTimeout(() => {
-        toast.success("Connection to Fortnox API successful");
-        setIsTestingConnection(false);
-      }, 1500);
+      const connection = await testSupabaseConnection();
+      setConnectionStatus({ 
+        checked: true, 
+        connected: connection.success, 
+        error: connection.error 
+      });
+      
+      if (connection.success) {
+        toast.success("Connection to Supabase successful");
+      } else {
+        toast.error(`Connection failed: ${connection.error}`);
+      }
+      
+      setIsTestingConnection(false);
     } catch (error) {
-      toast.error("Failed to connect to Fortnox API");
+      toast.error("Failed to test connection");
       setIsTestingConnection(false);
     }
   };
@@ -90,6 +117,20 @@ const Settings = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
+      
+      {connectionStatus.checked && !connectionStatus.connected && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to connect to the Supabase database. Please check your environment variables and ensure your Supabase instance is running.
+            {connectionStatus.error && (
+              <div className="mt-2 text-sm">
+                Error: {connectionStatus.error}
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs defaultValue="company" className="space-y-6">
         <TabsList className="mb-4">
@@ -186,6 +227,15 @@ const Settings = () => {
                 </div>
               ) : (
                 <>
+                  {!connectionStatus.connected && (
+                    <Alert className="mb-4">
+                      <Info className="h-4 w-4" />
+                      <AlertDescription>
+                        Database connection is required to save Fortnox credentials. Test the connection first.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                
                   <div className="space-y-2">
                     <Label htmlFor="clientId">Client ID</Label>
                     <Input
@@ -233,7 +283,7 @@ const Settings = () => {
                     <Button 
                       onClick={handleSaveFortnoxSettings}
                       className="bg-success hover:bg-success/90 text-success-foreground"
-                      disabled={isLoading}
+                      disabled={isLoading || !connectionStatus.connected}
                     >
                       {isLoading ? <Spinner size="sm" className="mr-2" /> : null}
                       Save API Settings
@@ -241,10 +291,10 @@ const Settings = () => {
                     <Button 
                       variant="outline" 
                       onClick={handleTestConnection}
-                      disabled={isTestingConnection || !fortnoxSettings.clientId || !fortnoxSettings.clientSecret}
+                      disabled={isTestingConnection}
                     >
                       {isTestingConnection ? <Spinner size="sm" className="mr-2" /> : null}
-                      Test Connection
+                      Test Database Connection
                     </Button>
                   </div>
                 </>

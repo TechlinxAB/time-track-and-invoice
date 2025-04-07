@@ -1,5 +1,5 @@
 
-import { supabase } from '@/lib/supabase';
+import { supabase, callFortnoxAPI } from '@/lib/supabase';
 import { toast } from "sonner";
 
 export interface FortnoxCredentials {
@@ -22,10 +22,10 @@ export const saveFortnoxCredentials = async (credentials: FortnoxCredentials): P
     const { error } = await supabase.from('fortnox_credentials').upsert(
       { 
         user_id: userData.user.id,
-        clientId: credentials.clientId,
-        clientSecret: credentials.clientSecret,
-        accessToken: credentials.accessToken || null,
-        refreshToken: credentials.refreshToken || null
+        client_id: credentials.clientId,
+        client_secret: credentials.clientSecret,
+        access_token: credentials.accessToken || null,
+        refresh_token: credentials.refreshToken || null
       },
       { onConflict: 'user_id' }
     );
@@ -56,7 +56,7 @@ export const getFortnoxCredentials = async (): Promise<FortnoxCredentials | null
     
     const { data, error } = await supabase
       .from('fortnox_credentials')
-      .select('clientId, clientSecret, accessToken, refreshToken')
+      .select('client_id, client_secret, access_token, refresh_token')
       .eq('user_id', userData.user.id)
       .single();
     
@@ -66,10 +66,10 @@ export const getFortnoxCredentials = async (): Promise<FortnoxCredentials | null
     }
     
     return {
-      clientId: data.clientId,
-      clientSecret: data.clientSecret,
-      accessToken: data.accessToken || undefined,
-      refreshToken: data.refreshToken || undefined,
+      clientId: data.client_id,
+      clientSecret: data.client_secret,
+      accessToken: data.access_token || undefined,
+      refreshToken: data.refresh_token || undefined,
     };
   } catch (error) {
     console.error('Error getting Fortnox credentials:', error);
@@ -77,28 +77,45 @@ export const getFortnoxCredentials = async (): Promise<FortnoxCredentials | null
   }
 };
 
-// This function should be called from a Supabase Edge Function for proper security
+// This function will try to use Edge Functions if available, otherwise fall back to direct API calls
 export const exportInvoiceToFortnox = async (invoiceData: any): Promise<{ success: boolean; error?: string }> => {
   try {
-    // In a real implementation, we would call a Supabase Edge Function
-    // that would use the stored credentials to make API calls to Fortnox
+    // First, try to call the Edge Function if deployed
+    try {
+      const response = await fetch('/functions/v1/fortnox-export', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabase.auth.getSession().then(res => res.data.session?.access_token)}`
+        },
+        body: JSON.stringify(invoiceData),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, ...data };
+      }
+    } catch (edgeFunctionError) {
+      console.warn('Edge Function not available, falling back to direct API call', edgeFunctionError);
+      // Edge Function call failed, continue to fallback
+    }
     
-    // For testing purposes, we'll make a direct call to a dummy endpoint
-    const response = await fetch('/api/fortnox/export-invoice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(invoiceData),
-    });
+    // Fallback: Direct API call
+    console.log('Using fallback: direct API call to Fortnox');
     
-    if (!response.ok) {
-      const errorData = await response.json();
+    // Get credentials
+    const credentials = await getFortnoxCredentials();
+    if (!credentials || !credentials.accessToken) {
       return { 
         success: false, 
-        error: errorData.message || 'Failed to export invoice' 
+        error: 'Fortnox access token not found. Please configure your Fortnox integration in Settings.' 
       };
     }
     
-    return { success: true };
+    // Make direct API call
+    const result = await callFortnoxAPI(invoiceData, credentials.accessToken);
+    return result;
+    
   } catch (error) {
     console.error('Error exporting invoice to Fortnox:', error);
     return { 
@@ -107,4 +124,3 @@ export const exportInvoiceToFortnox = async (invoiceData: any): Promise<{ succes
     };
   }
 };
-
