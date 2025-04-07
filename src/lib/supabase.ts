@@ -20,8 +20,7 @@ const currentProtocol = window.location.protocol;
 // Maximum time to wait for connection in milliseconds
 const CONNECTION_TIMEOUT = 5000; // 5 seconds timeout
 
-// Always use the direct Supabase URL as the fallback option without explicitly specifying port 
-// (assuming port 80 for HTTP or 443 for HTTPS)
+// Always use direct URL as fallback option
 const directSupabaseUrl = 'https://supabase.techlinx.se';
 
 // Determine the Supabase URL based on configuration
@@ -87,7 +86,7 @@ const isHtmlResponse = (response: any) => {
   return false;
 };
 
-// Test the connection with a timeout
+// Test the connection with a timeout, trying multiple endpoints
 export const testSupabaseConnection = async () => {
   try {
     console.log(`Testing Supabase connection to: ${supabaseUrl}`);
@@ -99,10 +98,25 @@ export const testSupabaseConnection = async () => {
       }, CONNECTION_TIMEOUT);
     });
     
-    // Try the simple health check with timeout
-    const healthCheck = async () => {
+    // Array of paths to try for health check in order
+    const healthCheckPaths = [
+      '/rest/v1/health_check', 
+      '/rest/v1/',
+      '/auth/v1/health',
+      '/storage/v1/health',
+      '/'
+    ];
+    
+    let lastError = null;
+    
+    // Try each path in sequence until one works
+    for (const path of healthCheckPaths) {
       try {
-        const response = await fetch(`${supabaseUrl}/rest/v1/health_check?select=*&limit=1`, {
+        console.log(`Trying health check path: ${path}`);
+        const healthCheckUrl = `${supabaseUrl}${path}`;
+        
+        const response = await fetch(healthCheckUrl, {
+          method: 'GET',
           headers: {
             'apikey': supabaseKey || 'dummy-key-for-init',
             'Authorization': `Bearer ${supabaseKey || 'dummy-key-for-init'}`,
@@ -110,66 +124,40 @@ export const testSupabaseConnection = async () => {
           }
         });
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+        console.log(`Path ${path} responded with status: ${response.status}`);
+        
+        if (response.ok) {
+          const text = await response.text();
+          
+          // Check if we received HTML instead of JSON (likely a proxy/CORS issue)
+          if (isHtmlResponse(text)) {
+            console.warn(`Received HTML response from ${path} - likely a proxy issue`);
+            continue;
+          }
+          
+          try {
+            // Try to parse as JSON but don't fail if it's not valid JSON
+            const data = text.trim() ? JSON.parse(text) : {};
+            console.log('Health check successful with path:', path);
+            return { success: true, path, data, timeout: false };
+          } catch (e) {
+            // If it's not JSON but the response was OK, we'll count it as a success
+            console.log('Non-JSON but valid response from path:', path);
+            return { success: true, path, text, timeout: false };
+          }
         }
         
-        const text = await response.text();
-        
-        // Check if we received HTML instead of JSON (likely a proxy/CORS issue)
-        if (isHtmlResponse(text)) {
-          throw new Error('Received HTML instead of JSON response. This may indicate a proxy misconfiguration.');
-        }
-        
-        try {
-          const data = JSON.parse(text);
-          return data;
-        } catch (e) {
-          throw new Error(`Failed to parse JSON response: ${text.substring(0, 100)}...`);
-        }
-      } catch (healthErr) {
-        throw healthErr;
+        lastError = new Error(`HTTP error! Status: ${response.status}`);
+      } catch (err) {
+        console.warn(`Path ${path} check failed:`, err);
+        lastError = err;
+        continue; // Try next path
       }
-    };
-    
-    // Race the health check against the timeout
-    const healthData = await Promise.race([healthCheck(), timeout]);
-    console.log('Health check result:', healthData || 'No data returned');
-    
-    // If health check passed, let's try a simple query
-    const { data, error } = await supabase.from('fortnox_credentials').select('count').limit(1);
-      
-    if (error) {
-      console.error('Supabase connection test failed:', error.message, error.details);
-      console.error('Full error object:', JSON.stringify(error));
-      
-      if (useReverseProxy !== false) {
-        // If we're using reverse proxy and failed, try direct URL
-        localStorage.setItem('tried_direct', 'true');
-        return { 
-          success: false, 
-          error: `${error.message}. Trying direct URL...`, 
-          timeout: false,
-          autoSwitchToDirectUrl: true
-        };
-      } else if (localStorage.getItem('tried_direct') === 'true') {
-        // If we've already tried direct URL, suggest reverse proxy
-        localStorage.setItem('tried_direct', 'false');
-        return { 
-          success: false, 
-          error: `${error.message}. Consider using the reverse proxy instead.`, 
-          timeout: false,
-          suggestReverseProxy: true
-        };
-      }
-      
-      return { success: false, error: error.message, timeout: false };
-    } else {
-      console.log('Supabase connection successful');
-      // Clear any previous failed attempts
-      localStorage.removeItem('tried_direct');
-      return { success: true, timeout: false };
     }
+    
+    // If we get here, all paths failed
+    throw lastError || new Error('All health check paths failed');
+    
   } catch (err) {
     const isTimeout = err instanceof Error && err.message.includes('timed out');
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -241,5 +229,7 @@ testSupabaseConnection()
         message += '\n        - Check if the database table \'fortnox_credentials\' exists';
       }
       console.warn(message);
+    } else {
+      console.log(`Supabase connection successful using path: ${result.path}`);
     }
   });

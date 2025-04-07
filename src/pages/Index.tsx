@@ -16,6 +16,7 @@ const Index = () => {
   const [isProxyError, setIsProxyError] = useState(false);
   const [isInternalOnly, setIsInternalOnly] = useState(false);
   const [isAutoSwitching, setIsAutoSwitching] = useState(false);
+  const [successPath, setSuccessPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (localStorage.getItem('use_reverse_proxy') === null) {
@@ -29,6 +30,7 @@ const Index = () => {
         setIsProxyError(false);
         setIsInternalOnly(false);
         setIsAutoSwitching(false);
+        setSuccessPath(null);
         
         const result = await testSupabaseConnection();
         
@@ -57,7 +59,10 @@ const Index = () => {
         }
         
         setConnectionStatus("success");
-        navigate("/dashboard");
+        if (result.path) {
+          setSuccessPath(result.path);
+        }
+        setTimeout(() => navigate("/dashboard"), 1000);
       } catch (error) {
         console.error("Error checking connection:", error);
         setConnectionStatus("error");
@@ -154,7 +159,9 @@ const Index = () => {
         
         {connectionStatus === "success" && (
           <>
-            <p className="text-muted-foreground mb-4">Connection successful! Loading your workspace...</p>
+            <p className="text-muted-foreground mb-4">
+              Connection successful! {successPath && `(via ${successPath})`} Loading your workspace...
+            </p>
             <div className="w-8 h-8 border-4 border-success/30 border-t-success rounded-full animate-spin mx-auto"></div>
           </>
         )}
