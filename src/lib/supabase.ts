@@ -1,17 +1,34 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 
-// Always use direct URL by default since reverse proxy has issues
+// Always default to direct URL since that's the most reliable method
+// We'll detect if we're on the internal network
 const useReverseProxy = localStorage.getItem('use_reverse_proxy') === 'true' ? true : false;
 const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
 
-// Get the domain and protocol for production use
+// Get the domain and protocol for detection
 const currentDomain = window.location.hostname;
 const currentProtocol = window.location.protocol;
 
 // Maximum time to wait for connection in milliseconds
 const CONNECTION_TIMEOUT = 5000; // 5 seconds timeout
+
+// Internal network detection
+const isLikelyInternalNetwork = () => {
+  // If we're on localhost, we're likely on the internal network
+  if (currentDomain === 'localhost' || currentDomain === '127.0.0.1') {
+    return true;
+  }
+  
+  // If we're on the same domain as the Supabase instance (techlinx.se), 
+  // we might be on the internal network
+  if (currentDomain.includes('techlinx.se')) {
+    return true;
+  }
+  
+  // Otherwise, assume we're not on the internal network
+  return false;
+};
 
 // Determine the Supabase URL based on environment and configuration
 let supabaseUrl;
@@ -24,7 +41,7 @@ if (useReverseProxy) {
   // For local development
   supabaseUrl = 'http://localhost:8000';
 } else {
-  // Use the direct Supabase URL for production
+  // Use the direct Supabase URL
   supabaseUrl = 'https://supabase.techlinx.se';
   console.log('Using direct Supabase URL:', supabaseUrl);
 }
@@ -35,6 +52,7 @@ console.log('Environment:', currentDomain === 'localhost' ? 'Development' : 'Pro
 console.log('Page is served via:', currentProtocol);
 console.log('Using Supabase URL:', supabaseUrl);
 console.log('Using reverse proxy:', useReverseProxy);
+console.log('Likely on internal network:', isLikelyInternalNetwork());
 if (useReverseProxy) console.log('Reverse proxy path:', reverseProxyPath);
 
 if (!supabaseKey) {
@@ -139,6 +157,18 @@ export const testSupabaseConnection = async () => {
       console.error('Supabase connection test failed:', error.message, error.details);
       console.error('Full error object:', JSON.stringify(error));
       
+      // Handle network access issues
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        if (!isLikelyInternalNetwork()) {
+          return {
+            success: false,
+            error: 'Cannot connect to Supabase. This instance appears to be available only on the internal network.',
+            timeout: false,
+            internalOnly: true
+          };
+        }
+      }
+      
       // If we're using the reverse proxy and it failed, suggest trying the direct URL
       if (useReverseProxy) {
         return { 
@@ -158,9 +188,20 @@ export const testSupabaseConnection = async () => {
     const isTimeout = err instanceof Error && err.message.includes('timed out');
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     const isProxyError = errorMessage.includes('proxy misconfiguration');
+    const isNetworkError = errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError');
     
     console.error(`Supabase connection ${isTimeout ? 'timed out' : 'failed'}:`, errorMessage);
     console.error('Full error object:', err);
+    
+    // Special handling for network access issues
+    if (isNetworkError && !isLikelyInternalNetwork()) {
+      return {
+        success: false,
+        error: 'Cannot connect to Supabase. This instance appears to be available only on the internal network.',
+        timeout: isTimeout,
+        internalOnly: true
+      };
+    }
     
     return { 
       success: false, 
@@ -183,6 +224,7 @@ export const getConnectionDetails = () => {
     reverseProxyPath: useReverseProxy ? reverseProxyPath : null,
     connectionTimeout: CONNECTION_TIMEOUT,
     directUrl: 'https://supabase.techlinx.se',
+    internalOnly: !isLikelyInternalNetwork(),
     nginxPath: currentDomain === 'timetracking.techlinx.se' ? '/var/log/nginx/freelancer-crm-error.log' : null
   };
 };
@@ -199,6 +241,9 @@ testSupabaseConnection()
       } else if (result.suggestDirectUrl) {
         message += `\n        - Received proxy error. Consider switching to the direct URL instead`;
         message += '\n        - Go to settings and disable reverse proxy to use https://supabase.techlinx.se directly';
+      } else if (result.internalOnly) {
+        message += `\n        - Supabase instance appears to be available only on the internal network`;
+        message += '\n        - You may need to be on VPN or the internal network to access it';
       } else {
         message += `\n        - Make sure your Supabase instance is running at ${supabaseUrl}`;
         message += '\n        - Check if the database table \'fortnox_credentials\' exists';

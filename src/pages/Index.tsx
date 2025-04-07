@@ -5,6 +5,7 @@ import { testSupabaseConnection, getConnectionDetails } from "../lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Info, Network } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ const Index = () => {
   const [connectionInfo, setConnectionInfo] = useState(() => getConnectionDetails());
   const [isRetrying, setIsRetrying] = useState(false);
   const [isProxyError, setIsProxyError] = useState(false);
+  const [isInternalOnly, setIsInternalOnly] = useState(false);
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -20,6 +22,7 @@ const Index = () => {
         setConnectionStatus("checking");
         setErrorMessage(null);
         setIsProxyError(false);
+        setIsInternalOnly(false);
         
         const result = await testSupabaseConnection();
         
@@ -36,6 +39,11 @@ const Index = () => {
             // Check if this is a proxy error
             if (result.suggestDirectUrl) {
               setIsProxyError(true);
+            }
+            
+            // Check if this is an internal network only issue
+            if (result.internalOnly) {
+              setIsInternalOnly(true);
             }
           }
           
@@ -142,8 +150,20 @@ const Index = () => {
                 : `We couldn't connect to ${connectionInfo.url}.`}
             </p>
             
+            {isInternalOnly && (
+              <Alert variant="warning" className="mb-4 border-amber-500 bg-amber-50">
+                <Network className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <span className="font-semibold block">Internal Network Access Required</span>
+                  This Supabase instance appears to be accessible only from within your organization's network. 
+                  You may need to connect to VPN or be on the internal network to access it.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {isProxyError && (
               <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   The reverse proxy appears to be misconfigured. Try connecting directly to Supabase instead.
                 </AlertDescription>
@@ -160,6 +180,7 @@ const Index = () => {
               {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
               <p><strong>Direct Supabase URL:</strong> {connectionInfo.directUrl}</p>
+              <p><strong>Likely Needs Internal Network:</strong> {connectionInfo.internalOnly ? "Yes" : "No"}</p>
               {connectionInfo.nginxPath && (
                 <p className="mt-2 text-orange-700">
                   <strong>Nginx Error Log:</strong> {connectionInfo.nginxPath}
@@ -181,6 +202,15 @@ const Index = () => {
               >
                 {isRetrying ? "Retrying..." : "Retry Connection"}
               </Button>
+              
+              {isInternalOnly && (
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-500" />
+                  <AlertDescription className="text-blue-800 text-xs">
+                    If you're trying to access from outside the network, ask your administrator about VPN access or network configuration.
+                  </AlertDescription>
+                </Alert>
+              )}
               
               {isProxyError && connectionInfo.reverseProxy && (
                 <Button 
