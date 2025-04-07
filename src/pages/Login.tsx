@@ -17,14 +17,30 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
-  const [connectionInfo, setConnectionInfo] = useState<{url: string; usingProxy: boolean}>(() => {
+  const [connectionInfo, setConnectionInfo] = useState<{
+    url: string; 
+    protocol: string;
+    pageProtocol: string;
+    usingProxy: boolean;
+    localHost?: string;
+  }>(() => {
     const supabaseConfig = supabase.constructor as any;
     const url = supabaseConfig?.supabaseUrl || "http://localhost:8000";
+    const protocol = url.split(':')[0];
     const usingProxy = url === window.location.origin;
-    return { url, usingProxy };
+    const localHost = localStorage.getItem('supabase_local_ip') || 'localhost';
+    return { 
+      url, 
+      protocol,
+      pageProtocol: window.location.protocol,
+      usingProxy,
+      localHost
+    };
   });
   
-  const localSupabaseHost = localStorage.getItem('supabase_local_ip') || 'localhost';
+  const hasMixedContentIssue = 
+    connectionInfo.pageProtocol === 'https:' && 
+    connectionInfo.protocol === 'http';
 
   // If user is already logged in, redirect to the dashboard
   if (user) {
@@ -62,7 +78,13 @@ const Login = () => {
         if (result.error && 'status' in result.error && result.error.status === 502) {
           toast({
             title: "Backend Connection Error (502)",
-            description: "Cannot connect to authentication server. Please verify the backend is running on http://localhost:8000",
+            description: "Cannot connect to authentication server. Please verify the backend is running.",
+            variant: "destructive"
+          });
+        } else if (hasMixedContentIssue) {
+          toast({
+            title: "Mixed Content Error",
+            description: "HTTPS pages cannot load content from HTTP sources. Try using the same protocol for both.",
             variant: "destructive"
           });
         } else {
@@ -100,6 +122,18 @@ const Login = () => {
       localStorage.setItem('supabase_local_ip', localIp);
       window.location.reload();
     }
+  };
+  
+  const handleHttpsToggle = () => {
+    // Store user preference for protocol
+    const currentProtocol = localStorage.getItem('supabase_protocol') || 'http';
+    const newProtocol = currentProtocol === 'http' ? 'https' : 'http';
+    localStorage.setItem('supabase_protocol', newProtocol);
+    toast({
+      title: "Protocol Changed",
+      description: `Connection protocol switched to ${newProtocol.toUpperCase()}. Reloading...`,
+    });
+    setTimeout(() => window.location.reload(), 1500);
   };
 
   return (
@@ -148,15 +182,32 @@ const Login = () => {
           
           <div className="mt-4 text-xs bg-gray-100 p-3 rounded text-left">
             <p><strong>API URL:</strong> {connectionInfo.url}</p>
+            <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
+            <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
             <p><strong>Connecting Directly:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
-            <p><strong>Backend Expected:</strong> {window.location.protocol}//{localSupabaseHost}:8000</p>
-            <p className="pt-2 text-amber-600 font-medium">Important: Make sure the Supabase backend is running on {localSupabaseHost}:8000</p>
-            <button 
-              onClick={handleConfigureLocalDb} 
-              className="mt-2 text-xs text-blue-600 hover:underline"
-            >
-              Change local Supabase address
-            </button>
+            <p><strong>Local Database Host:</strong> {connectionInfo.localHost}</p>
+            
+            {hasMixedContentIssue && (
+              <div className="mt-2 p-2 bg-amber-50 border-l-4 border-amber-400 text-amber-800">
+                <p className="font-semibold">Mixed Content Issue Detected</p>
+                <p>Your HTTPS page cannot load content from HTTP source</p>
+              </div>
+            )}
+            
+            <div className="flex space-x-2 mt-2">
+              <button 
+                onClick={handleConfigureLocalDb} 
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Change Local IP
+              </button>
+              <button 
+                onClick={handleHttpsToggle} 
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Switch to {localStorage.getItem('supabase_protocol') === 'https' ? 'HTTP' : 'HTTPS'}
+              </button>
+            </div>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">

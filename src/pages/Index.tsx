@@ -64,8 +64,24 @@ const Index = () => {
     const currentProtocol = localStorage.getItem('supabase_protocol') || 'http';
     const newProtocol = currentProtocol === 'http' ? 'https' : 'http';
     localStorage.setItem('supabase_protocol', newProtocol);
-    window.location.reload();
+    toast({
+      title: "Protocol Changed",
+      description: `Connection protocol switched to ${newProtocol.toUpperCase()}. Reloading...`,
+    });
+    setTimeout(() => window.location.reload(), 1500);
   };
+
+  const checkMixedContentError = () => {
+    const pageProtocol = window.location.protocol;
+    const apiProtocol = connectionInfo.protocol + ':';
+    
+    if (pageProtocol === 'https:' && apiProtocol === 'http:') {
+      return true;
+    }
+    return false;
+  };
+
+  const hasMixedContentIssue = checkMixedContentError();
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -80,7 +96,15 @@ const Index = () => {
               <p><strong>Environment:</strong> {connectionInfo.environment}</p>
               <p><strong>URL:</strong> {connectionInfo.url}</p>
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
+              <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
+              <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
               {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
+              
+              {hasMixedContentIssue && (
+                <p className="text-red-500 font-semibold mt-2">
+                  ⚠️ Protocol Mismatch: HTTPS page cannot load HTTP content
+                </p>
+              )}
             </div>
           </>
         )}
@@ -98,23 +122,39 @@ const Index = () => {
             <p className="text-muted-foreground mb-3">
               We couldn't connect to the database. This could be due to:
             </p>
-            <ul className="list-disc pl-5 mb-4 text-sm text-gray-700">
-              <li>Incorrect Supabase URL or API key</li>
-              <li>Mixed content issues (HTTP vs HTTPS)</li>
-              <li>Supabase service not running or unhealthy</li>
-              <li>Network connectivity issues</li>
-              <li>CORS or proxy configuration issues</li>
-            </ul>
+            
+            {hasMixedContentIssue ? (
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-3 mb-4">
+                <p className="font-bold">Mixed Content Error Detected</p>
+                <p className="text-sm">Your browser is blocking insecure (HTTP) requests from a secure (HTTPS) page.</p>
+                <p className="text-sm mt-2">Solutions:</p>
+                <ul className="list-disc pl-5 text-sm">
+                  <li>Use HTTPS for both (recommended)</li>
+                  <li>Use HTTP for both (development only)</li>
+                  <li>Enable "allow insecure content" in your browser</li>
+                </ul>
+              </div>
+            ) : (
+              <ul className="list-disc pl-5 mb-4 text-sm text-gray-700">
+                <li>Incorrect Supabase URL or API key</li>
+                <li>Supabase service not running or unhealthy</li>
+                <li>Network connectivity issues</li>
+                <li>CORS or proxy configuration issues</li>
+                <li>Firewall blocking the connection</li>
+              </ul>
+            )}
             
             <div className="mt-2 text-xs bg-gray-100 p-3 rounded text-left mb-4">
               <p><strong>Environment:</strong> {connectionInfo.environment}</p>
               <p><strong>URL:</strong> {connectionInfo.url}</p>
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
+              <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
+              <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
               {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
               
-              {errorMessage && errorMessage.includes("Mixed Content") && (
+              {hasMixedContentIssue && (
                 <p className="text-red-500 font-semibold mt-2">
-                  Mixed Content Error: Your browser is blocking HTTP requests from an HTTPS page
+                  ⚠️ Protocol Mismatch: HTTPS page trying to load HTTP content
                 </p>
               )}
             </div>
@@ -146,7 +186,7 @@ const Index = () => {
                 className="px-4 py-2 rounded w-full"
                 onClick={handleHttpsToggle}
               >
-                Toggle HTTP/HTTPS Protocol
+                Switch to {localStorage.getItem('supabase_protocol') === 'https' ? 'HTTP' : 'HTTPS'} Protocol
               </Button>
               
               <Button 
