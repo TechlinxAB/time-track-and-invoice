@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Info } from "lucide-react";
 import { formatCurrency } from "@/lib/date-utils";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,6 +17,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "@/types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const Invoicing = () => {
   const { clients, timeEntries, getClientById, getActivityById } = useAppContext();
@@ -25,10 +27,27 @@ const Invoicing = () => {
     from: undefined,
     to: undefined,
   });
+  const [invoiceNotes, setInvoiceNotes] = useState<string>("");
+
+  const client = selectedClient ? getClientById(selectedClient) : null;
+  const hasOrganizationNumber = client?.organizationNumber && client.organizationNumber.length > 0;
 
   const handleExport = () => {
-    toast.success("This feature will be implemented in the next version");
+    if (!hasOrganizationNumber) {
+      toast.error("Organization number required for Fortnox integration. Please update client details.");
+      return;
+    }
+    
+    toast.success("Preparing to export invoice to Fortnox");
+    // In a real implementation, this would connect to Fortnox API
   };
+
+  const filteredTimeEntries = selectedClient && dateRange.from ? 
+    timeEntries.filter(entry => 
+      entry.clientId === selectedClient && 
+      new Date(entry.date) >= dateRange.from! &&
+      (!dateRange.to || new Date(entry.date) <= dateRange.to)
+    ) : [];
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -51,9 +70,17 @@ const Invoicing = () => {
                 >
                   <option value="">Choose a client</option>
                   {clients.map(client => (
-                    <option key={client.id} value={client.id}>{client.name}</option>
+                    <option key={client.id} value={client.id}>
+                      {client.name} {!client.organizationNumber && "(No org. number)"}
+                    </option>
                   ))}
                 </select>
+                
+                {selectedClient && !hasOrganizationNumber && (
+                  <p className="mt-1 text-xs text-destructive">
+                    Organization number required for Fortnox export
+                  </p>
+                )}
               </div>
               
               <div>
@@ -96,6 +123,15 @@ const Invoicing = () => {
                   </PopoverContent>
                 </Popover>
               </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">Invoice Notes</label>
+                <Textarea
+                  placeholder="Add notes to your invoice"
+                  value={invoiceNotes}
+                  onChange={(e) => setInvoiceNotes(e.target.value)}
+                />
+              </div>
               
               <Button 
                 className="w-full bg-success hover:bg-success/90 text-success-foreground"
@@ -112,13 +148,42 @@ const Invoicing = () => {
               <CardTitle>Export Options</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start" onClick={handleExport}>
-                Export to Fortnox
-              </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={handleExport}>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-between" 
+                        onClick={handleExport}
+                        disabled={!selectedClient || !dateRange.from || !hasOrganizationNumber}
+                      >
+                        <span>Export to Fortnox</span>
+                        <Info className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Requires client organization number and activity account numbers</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={() => toast.success("PDF download will be available in the next version")}
+                disabled={!selectedClient || !dateRange.from}
+              >
                 Download PDF
               </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={handleExport}>
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={() => toast.success("CSV export will be available in the next version")}
+                disabled={!selectedClient || !dateRange.from}
+              >
                 Export to CSV
               </Button>
             </CardContent>
@@ -130,7 +195,9 @@ const Invoicing = () => {
             <CardHeader>
               <CardTitle>Invoice Preview</CardTitle>
               <CardDescription>
-                Select a client and date range to see a preview
+                {selectedClient && dateRange.from 
+                  ? `${filteredTimeEntries.length} entries found for selected period` 
+                  : "Select a client and date range to see a preview"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -140,10 +207,104 @@ const Invoicing = () => {
                     Select a client and date range to generate an invoice preview
                   </p>
                 </div>
+              ) : filteredTimeEntries.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">
+                    No time entries found for the selected date range
+                  </p>
+                </div>
               ) : (
-                <p className="text-center py-12 text-muted-foreground">
-                  Invoice preview will be implemented in the next version
-                </p>
+                <div className="space-y-6">
+                  <div className="border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Activity</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Duration</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredTimeEntries.map(entry => {
+                          const activity = getActivityById(entry.activityId);
+                          let amount = 0;
+                          
+                          if (activity) {
+                            if (activity.isFixedPrice) {
+                              amount = activity.fixedPrice || 0;
+                            } else {
+                              // Convert minutes to hours and multiply by rate
+                              amount = (entry.duration / 60) * activity.hourlyRate;
+                            }
+                          }
+                          
+                          return (
+                            <TableRow key={entry.id}>
+                              <TableCell>{format(new Date(entry.date), "yyyy-MM-dd")}</TableCell>
+                              <TableCell>
+                                {activity?.name}
+                                {activity?.accountNumber && (
+                                  <span className="text-xs text-muted-foreground ml-1">
+                                    (Konto: {activity.accountNumber})
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell>{entry.description}</TableCell>
+                              <TableCell>
+                                {Math.floor(entry.duration / 60)}h {entry.duration % 60}m
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(amount)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  
+                  <div className="flex justify-end">
+                    <div className="w-64 space-y-2">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>
+                          {formatCurrency(
+                            filteredTimeEntries.reduce((sum, entry) => {
+                              const activity = getActivityById(entry.activityId);
+                              if (!activity) return sum;
+                              
+                              if (activity.isFixedPrice) {
+                                return sum + (activity.fixedPrice || 0);
+                              } else {
+                                return sum + ((entry.duration / 60) * activity.hourlyRate);
+                              }
+                            }, 0)
+                          )}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between font-bold border-t pt-2">
+                        <span>Total:</span>
+                        <span>
+                          {formatCurrency(
+                            filteredTimeEntries.reduce((sum, entry) => {
+                              const activity = getActivityById(entry.activityId);
+                              if (!activity) return sum;
+                              
+                              if (activity.isFixedPrice) {
+                                return sum + (activity.fixedPrice || 0);
+                              } else {
+                                return sum + ((entry.duration / 60) * activity.hourlyRate);
+                              }
+                            }, 0)
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -152,5 +313,15 @@ const Invoicing = () => {
     </div>
   );
 };
+
+// Import Table components for the invoice preview
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default Invoicing;

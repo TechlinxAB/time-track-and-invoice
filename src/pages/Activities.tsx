@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
@@ -41,6 +40,7 @@ const Activities = () => {
     hourlyRate: 0,
     isFixedPrice: false,
     fixedPrice: 0,
+    accountNumber: "",
   });
 
   const handleOpenDialog = (activity?: Activity) => {
@@ -51,6 +51,7 @@ const Activities = () => {
         hourlyRate: activity.hourlyRate,
         isFixedPrice: activity.isFixedPrice,
         fixedPrice: activity.fixedPrice || 0,
+        accountNumber: activity.accountNumber || "",
       });
     } else {
       setEditingActivity(null);
@@ -59,6 +60,7 @@ const Activities = () => {
         hourlyRate: 0,
         isFixedPrice: false,
         fixedPrice: 0,
+        accountNumber: "",
       });
     }
     
@@ -134,6 +136,7 @@ const Activities = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Rate Type</TableHead>
                   <TableHead>Rate</TableHead>
+                  <TableHead>Account Number</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -147,6 +150,7 @@ const Activities = () => {
                         ? formatCurrency(activity.fixedPrice || 0)
                         : `${formatCurrency(activity.hourlyRate)}/hour`}
                     </TableCell>
+                    <TableCell>{activity.accountNumber || "-"}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -177,7 +181,6 @@ const Activities = () => {
         </CardContent>
       </Card>
       
-      {/* Add/Edit Activity Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -197,6 +200,20 @@ const Activities = () => {
                 onChange={handleChange}
                 required
               />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="accountNumber">Account Number (Kontonummer)</Label>
+              <Input 
+                id="accountNumber"
+                name="accountNumber"
+                value={formData.accountNumber}
+                onChange={handleChange}
+                placeholder="e.g. 3000"
+              />
+              <p className="text-xs text-muted-foreground">
+                Required for Fortnox integration. Usually 4 digits.
+              </p>
             </div>
             
             <div className="flex items-center space-x-2">

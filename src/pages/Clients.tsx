@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
@@ -39,6 +38,7 @@ const Clients = () => {
     company: "",
     email: "",
     phone: "",
+    organizationNumber: "",
   });
 
   const handleOpenDialog = (client?: Client) => {
@@ -49,6 +49,7 @@ const Clients = () => {
         company: client.company || "",
         email: client.email || "",
         phone: client.phone || "",
+        organizationNumber: client.organizationNumber || "",
       });
     } else {
       setEditingClient(null);
@@ -57,6 +58,7 @@ const Clients = () => {
         company: "",
         email: "",
         phone: "",
+        organizationNumber: "",
       });
     }
     
@@ -122,6 +124,7 @@ const Clients = () => {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Company</TableHead>
+                  <TableHead>Organization Number</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
@@ -132,6 +135,7 @@ const Clients = () => {
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.name}</TableCell>
                     <TableCell>{client.company || "-"}</TableCell>
+                    <TableCell>{client.organizationNumber || "-"}</TableCell>
                     <TableCell>{client.email || "-"}</TableCell>
                     <TableCell>{client.phone || "-"}</TableCell>
                     <TableCell>
@@ -164,7 +168,6 @@ const Clients = () => {
         </CardContent>
       </Card>
       
-      {/* Add/Edit Client Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -194,6 +197,20 @@ const Clients = () => {
                 value={formData.company}
                 onChange={handleChange}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="organizationNumber">Organization Number</Label>
+              <Input 
+                id="organizationNumber"
+                name="organizationNumber"
+                value={formData.organizationNumber}
+                onChange={handleChange}
+                placeholder="XXXXXXXXXX"
+              />
+              <p className="text-xs text-muted-foreground">
+                Required for Fortnox integration
+              </p>
             </div>
             
             <div className="space-y-2">

@@ -5,6 +5,7 @@ export interface Client {
   email?: string;
   company?: string;
   phone?: string;
+  organizationNumber?: string; // Added for Swedish company identification
 }
 
 export interface Activity {
@@ -13,6 +14,7 @@ export interface Activity {
   hourlyRate: number;
   isFixedPrice: boolean;
   fixedPrice?: number;
+  accountNumber?: string; // Added for Swedish Fortnox kontnummer
 }
 
 export interface TimeEntry {
