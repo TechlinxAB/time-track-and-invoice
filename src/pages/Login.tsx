@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ const Login = () => {
     const url = supabaseConfig?.supabaseUrl || "unknown";
     const protocol = url.split(':')[0];
     const usingProxy = url.includes(window.location.hostname);
-    const reverseProxy = localStorage.getItem('use_reverse_proxy') === 'true';
+    const reverseProxy = localStorage.getItem('use_reverse_proxy') !== 'false';
     const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
     
     return { 
@@ -40,6 +40,14 @@ const Login = () => {
       reverseProxyPath
     };
   });
+
+  useEffect(() => {
+    // Force reverse proxy to true by default if not explicitly set
+    if (localStorage.getItem('use_reverse_proxy') === null) {
+      localStorage.setItem('use_reverse_proxy', 'true');
+      window.location.reload();
+    }
+  }, []);
 
   // If user is already logged in, redirect to the dashboard
   if (user) {
@@ -106,7 +114,7 @@ const Login = () => {
   };
   
   const handleReverseProxyToggle = () => {
-    const current = localStorage.getItem('use_reverse_proxy') === 'true';
+    const current = localStorage.getItem('use_reverse_proxy') !== 'false';
     localStorage.setItem('use_reverse_proxy', (!current).toString());
     
     toast({

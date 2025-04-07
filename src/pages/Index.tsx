@@ -18,6 +18,11 @@ const Index = () => {
   const [isAutoSwitching, setIsAutoSwitching] = useState(false);
 
   useEffect(() => {
+    // Force reverse proxy to true by default if not explicitly set
+    if (localStorage.getItem('use_reverse_proxy') === null) {
+      localStorage.setItem('use_reverse_proxy', 'true');
+    }
+    
     const checkConnection = async () => {
       try {
         setConnectionStatus("checking");
