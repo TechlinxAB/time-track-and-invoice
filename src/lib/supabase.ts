@@ -2,23 +2,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 
-// These would typically come from your environment variables
-// For self-hosted Supabase, these would be your self-hosted instance URLs and keys
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+// In production environments, use environment variables
+// For local development, we'll always use localhost:8000
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://localhost:8000';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-const isProduction = window.location.protocol === 'https:' || 
-                     !window.location.hostname.includes('localhost');
-
-// For reverse proxy setups, we need to use the current origin
+// Always use localhost:8000 for local development
 const getBaseUrl = () => {
-  // Use localhost:8000 for development and the current origin for production
-  if (isProduction) {
-    // Use current origin (e.g. https://timetracking.techlinx.se) when running in production
-    return window.location.origin;
-  }
-  
-  // Always default to localhost:8000 for backend connections in development
   return 'http://localhost:8000';
 };
 
@@ -27,8 +17,7 @@ console.log('Using Supabase URL:', effectiveSupabaseUrl);
 
 if (!supabaseKey) {
   console.warn(
-    'Supabase Anon Key is missing. Make sure to set the following environment variables:\n' +
-    'VITE_SUPABASE_ANON_KEY=your-anon-key-from-env-file'
+    'Supabase Anon Key is missing. Using dummy key for initialization.'
   );
 }
 
@@ -38,7 +27,6 @@ export const supabase = createClient(effectiveSupabaseUrl, supabaseKey || 'dummy
     autoRefreshToken: true,
     detectSessionInUrl: true,
     storageKey: 'freelancer-crm-auth',
-    flowType: 'implicit',
   },
   global: {
     headers: {
@@ -66,7 +54,7 @@ export const testSupabaseConnection = async () => {
     
     // First test with a simpler request
     try {
-      const { data: healthData, error: healthError } = await supabase.from('health_check').select('*').limit(1).single();
+      const { data: healthData, error: healthError } = await supabase.from('health_check').select('*').limit(1);
       console.log('Health check result:', healthData || 'No data returned');
       if (healthError) console.warn('Health check error (non-fatal):', healthError);
     } catch (healthErr) {
@@ -135,17 +123,15 @@ export const callFortnoxAPI = async (invoiceData: any, accessToken: string) => {
 };
 
 // Run the test if both URL and key are provided
-if (supabase) {
-  testSupabaseConnection()
-    .then(result => {
-      if (!result.success) {
-        console.warn(`
-          ⚠️ Supabase connection failed. Check your configuration:
-          - If in production, check that nginx is properly proxying requests to localhost:8000
-          - Make sure your Supabase instance is running on localhost:8000
-          - Check if the database table 'fortnox_credentials' exists
-          - Check that VAULT_ENC_KEY is set and at least 32 characters long in your .env file
-        `);
-      }
-    });
-}
+console.log('Testing Supabase connection on startup with URL:', effectiveSupabaseUrl);
+testSupabaseConnection()
+  .then(result => {
+    if (!result.success) {
+      console.warn(`
+        ⚠️ Supabase connection failed. Check your configuration:
+        - Make sure your Supabase instance is running on localhost:8000
+        - Check if the database table 'fortnox_credentials' exists
+        - Check that VAULT_ENC_KEY is set and at least 32 characters long in your .env file
+      `);
+    }
+  });

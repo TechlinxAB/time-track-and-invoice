@@ -19,7 +19,7 @@ const Login = () => {
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [connectionInfo, setConnectionInfo] = useState<{url: string; usingProxy: boolean}>(() => {
     const supabaseConfig = supabase.constructor as any;
-    const url = supabaseConfig?.supabaseUrl || "Unknown";
+    const url = supabaseConfig?.supabaseUrl || "http://localhost:8000";
     const usingProxy = url === window.location.origin;
     return { url, usingProxy };
   });
@@ -60,7 +60,7 @@ const Login = () => {
         if (result.error && 'status' in result.error && result.error.status === 502) {
           toast({
             title: "Backend Connection Error (502)",
-            description: "Cannot connect to authentication server. Please check if the backend is running on localhost:8000.",
+            description: "Cannot connect to authentication server. Please verify the backend is running on http://localhost:8000",
             variant: "destructive"
           });
         } else {
@@ -137,9 +137,10 @@ const Login = () => {
           )}
           
           <div className="mt-4 text-xs bg-gray-100 p-3 rounded text-left">
-            <p><strong>API URL:</strong> {connectionInfo.url}</p>
-            <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
+            <p><strong>API URL:</strong> http://localhost:8000</p>
+            <p><strong>Connecting Directly:</strong> Yes</p>
             <p><strong>Backend Expected:</strong> http://localhost:8000</p>
+            <p className="pt-2 text-amber-600 font-medium">Important: Make sure the Supabase backend is running on localhost:8000</p>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">

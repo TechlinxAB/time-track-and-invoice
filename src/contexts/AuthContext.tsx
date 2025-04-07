@@ -83,10 +83,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Add a delay to ensure the request has time to complete
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
-        password,
-        options: {
-          redirectTo: window.location.origin
-        }
+        password 
       });
       
       if (error) {
