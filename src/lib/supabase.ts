@@ -7,7 +7,24 @@ import { toast } from '@/components/ui/use-toast';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseKey) {
+const isProduction = window.location.protocol === 'https:' || 
+                     !window.location.hostname.includes('localhost');
+
+// For reverse proxy setups, we may need to use the current origin
+const getBaseUrl = () => {
+  if (!supabaseUrl) return '';
+  
+  // If we're behind a reverse proxy, use the current origin for API requests
+  if (isProduction && supabaseUrl.includes('your-server-ip')) {
+    return window.location.origin;
+  }
+  
+  return supabaseUrl;
+};
+
+const effectiveSupabaseUrl = getBaseUrl();
+
+if (!effectiveSupabaseUrl || !supabaseKey) {
   console.warn(
     'Supabase URL or Anon Key is missing. Make sure to set the following environment variables in your .env.local file:\n' +
     'VITE_SUPABASE_URL=http://your-server-ip:8000\n' +
@@ -15,7 +32,7 @@ if (!supabaseUrl || !supabaseKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+export const supabase = createClient(effectiveSupabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -36,6 +53,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 // Test the connection when the app initializes
 export const testSupabaseConnection = async () => {
   try {
+    console.log(`Testing Supabase connection to: ${effectiveSupabaseUrl}`);
+    
     const { data, error } = await supabase.from('fortnox_credentials').select('count').limit(1);
     if (error) {
       console.error('Supabase connection test failed:', error.message);
@@ -94,7 +113,7 @@ export const callFortnoxAPI = async (invoiceData: any, accessToken: string) => {
 };
 
 // Run the test if both URL and key are provided
-if (supabaseUrl && supabaseKey) {
+if (effectiveSupabaseUrl && supabaseKey) {
   testSupabaseConnection()
     .then(result => {
       if (!result.success) {
