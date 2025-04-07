@@ -25,7 +25,7 @@ const Layout = () => {
       {/* Sidebar */}
       <aside 
         className={cn(
-          "bg-sidebar border-r border-border h-screen transition-all duration-300 ease-in-out flex flex-col",
+          "bg-sidebar border-r border-border h-screen flex flex-col transition-all duration-300 ease-in-out sticky top-0",
           collapsed ? "w-16" : "w-64"
         )}
       >
@@ -73,8 +73,8 @@ const Layout = () => {
           </ul>
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-border">
+        {/* Footer - This will now stay at the bottom */}
+        <div className="p-4 border-t border-border mt-auto">
           <button 
             className={cn(
               "w-full flex items-center py-2 px-3 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-all duration-200",
