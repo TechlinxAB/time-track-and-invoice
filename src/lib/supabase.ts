@@ -30,19 +30,19 @@ const isLikelyInternalNetwork = () => {
   return false;
 };
 
-// Determine the Supabase URL based on environment and configuration
+// Set the direct Supabase URL as the default
+const directSupabaseUrl = 'https://supabase.techlinx.se';
+
+// Determine the Supabase URL based on configuration
 let supabaseUrl;
 
 if (useReverseProxy) {
   // Use the reverse proxy path with the current origin
   supabaseUrl = `${window.location.origin}${reverseProxyPath}`;
   console.log('Using reverse proxy for Supabase at:', supabaseUrl);
-} else if (currentDomain === 'localhost' || currentDomain === '127.0.0.1') {
-  // For local development
-  supabaseUrl = 'http://localhost:8000';
 } else {
   // Use the direct Supabase URL
-  supabaseUrl = 'https://supabase.techlinx.se';
+  supabaseUrl = directSupabaseUrl;
   console.log('Using direct Supabase URL:', supabaseUrl);
 }
 
@@ -223,7 +223,7 @@ export const getConnectionDetails = () => {
     reverseProxy: useReverseProxy,
     reverseProxyPath: useReverseProxy ? reverseProxyPath : null,
     connectionTimeout: CONNECTION_TIMEOUT,
-    directUrl: 'https://supabase.techlinx.se',
+    directUrl: directSupabaseUrl,
     internalOnly: !isLikelyInternalNetwork(),
     nginxPath: currentDomain === 'timetracking.techlinx.se' ? '/var/log/nginx/freelancer-crm-error.log' : null
   };

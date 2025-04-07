@@ -151,7 +151,7 @@ const Index = () => {
             </p>
             
             {isInternalOnly && (
-              <Alert variant="warning" className="mb-4 border-amber-500 bg-amber-50">
+              <Alert className="mb-4 border-amber-500 bg-amber-50">
                 <Network className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800">
                   <span className="font-semibold block">Internal Network Access Required</span>
