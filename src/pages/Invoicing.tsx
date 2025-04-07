@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import {
   Card,
@@ -19,6 +18,9 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { exportInvoiceToFortnox, getFortnoxCredentials } from "@/services/fortnoxService";
+import { Spinner } from "@/components/ui/spinner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const Invoicing = () => {
   const { clients, timeEntries, getClientById, getActivityById } = useAppContext();
@@ -28,19 +30,20 @@ const Invoicing = () => {
     to: undefined,
   });
   const [invoiceNotes, setInvoiceNotes] = useState<string>("");
+  const [hasFortnoxCredentials, setHasFortnoxCredentials] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const client = selectedClient ? getClientById(selectedClient) : null;
   const hasOrganizationNumber = client?.organizationNumber && client.organizationNumber.length > 0;
 
-  const handleExport = () => {
-    if (!hasOrganizationNumber) {
-      toast.error("Organization number required for Fortnox integration. Please update client details.");
-      return;
-    }
+  useEffect(() => {
+    const checkFortnoxCredentials = async () => {
+      const credentials = await getFortnoxCredentials();
+      setHasFortnoxCredentials(!!credentials && !!credentials.clientId && !!credentials.clientSecret);
+    };
     
-    toast.success("Preparing to export invoice to Fortnox");
-    // In a real implementation, this would connect to Fortnox API
-  };
+    checkFortnoxCredentials();
+  }, []);
 
   const filteredTimeEntries = selectedClient && dateRange.from ? 
     timeEntries.filter(entry => 
@@ -48,6 +51,58 @@ const Invoicing = () => {
       new Date(entry.date) >= dateRange.from! &&
       (!dateRange.to || new Date(entry.date) <= dateRange.to)
     ) : [];
+
+  const handleExport = async () => {
+    if (!hasOrganizationNumber) {
+      toast.error("Organization number required for Fortnox integration. Please update client details.");
+      return;
+    }
+    
+    if (!selectedClient || !dateRange.from) {
+      toast.error("Please select a client and date range");
+      return;
+    }
+    
+    setIsExporting(true);
+    
+    const invoiceData = {
+      client: getClientById(selectedClient),
+      dateRange,
+      entries: filteredTimeEntries,
+      notes: invoiceNotes,
+      totalAmount: filteredTimeEntries.reduce((sum, entry) => {
+        const activity = getActivityById(entry.activityId);
+        if (!activity) return sum;
+        
+        if (activity.isFixedPrice) {
+          return sum + (activity.fixedPrice || 0);
+        } else {
+          return sum + ((entry.duration / 60) * activity.hourlyRate);
+        }
+      }, 0),
+    };
+    
+    try {
+      if (!hasFortnoxCredentials) {
+        toast.error("Fortnox credentials not found. Please set up Fortnox integration in Settings.");
+        setIsExporting(false);
+        return;
+      }
+      
+      const result = await exportInvoiceToFortnox(invoiceData);
+      
+      if (result.success) {
+        toast.success("Invoice exported to Fortnox successfully");
+      } else {
+        toast.error(`Failed to export invoice: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred during export");
+      console.error("Export error:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -135,9 +190,10 @@ const Invoicing = () => {
               
               <Button 
                 className="w-full bg-success hover:bg-success/90 text-success-foreground"
-                disabled={!selectedClient || !dateRange.from}
+                disabled={!selectedClient || !dateRange.from || isExporting}
                 onClick={handleExport}
               >
+                {isExporting ? <Spinner size="sm" className="mr-2" /> : null}
                 Generate Invoice
               </Button>
             </CardContent>
@@ -156,15 +212,28 @@ const Invoicing = () => {
                         variant="outline" 
                         className="w-full justify-between" 
                         onClick={handleExport}
-                        disabled={!selectedClient || !dateRange.from || !hasOrganizationNumber}
+                        disabled={!selectedClient || !dateRange.from || !hasOrganizationNumber || isExporting || !hasFortnoxCredentials}
                       >
                         <span>Export to Fortnox</span>
-                        <Info className="h-4 w-4" />
+                        {!hasFortnoxCredentials ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-4 w-4 text-amber-500" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Fortnox credentials not set up. Go to Settings.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <Info className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Requires client organization number and activity account numbers</p>
+                    <p>Requires client organization number and Fortnox credentials</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -235,7 +304,6 @@ const Invoicing = () => {
                             if (activity.isFixedPrice) {
                               amount = activity.fixedPrice || 0;
                             } else {
-                              // Convert minutes to hours and multiply by rate
                               amount = (entry.duration / 60) * activity.hourlyRate;
                             }
                           }
@@ -313,15 +381,5 @@ const Invoicing = () => {
     </div>
   );
 };
-
-// Import Table components for the invoice preview
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 export default Invoicing;

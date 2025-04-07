@@ -1,4 +1,3 @@
-
 export interface Client {
   id: string;
   name: string;
@@ -54,3 +53,24 @@ export type DateRange = {
   from: Date | undefined;
   to?: Date | undefined;
 };
+
+export interface FortnoxCredentials {
+  clientId: string;
+  clientSecret: string;
+  accessToken?: string;
+  refreshToken?: string;
+}
+
+export interface FortnoxInvoice {
+  client: Client | undefined;
+  dateRange: DateRange;
+  entries: TimeEntry[];
+  notes: string;
+  totalAmount: number;
+}
+
+export interface FortnoxApiResponse {
+  success: boolean;
+  error?: string;
+  data?: any;
+}

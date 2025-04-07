@@ -1,166 +1,276 @@
 
-# Welcome to your Lovable project
+# Freelancer CRM with Fortnox Integration
 
-## Project info
+A comprehensive CRM application for freelancers with time tracking, invoicing, and Fortnox integration.
 
-**URL**: https://lovable.dev/projects/52e26dbd-d172-4be7-b218-3a3f43fb9a28
+## Self-Hosted Deployment Guide
 
-## How can I edit this code?
+This guide will walk you through setting up the application on a self-hosted Linux server with a self-hosted Supabase instance.
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/52e26dbd-d172-4be7-b218-3a3f43fb9a28) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-### Option 1: Use Lovable's built-in deployment
-
-Simply open [Lovable](https://lovable.dev/projects/52e26dbd-d172-4be7-b218-3a3f43fb9a28) and click on Share -> Publish.
-
-### Option 2: Deploy on your own Linux server with self-hosted Supabase
-
-#### Prerequisites
+### Prerequisites
 
 - A Linux server (Ubuntu 20.04 LTS or later recommended)
 - Docker and Docker Compose installed
-- Nginx or another web server for proxying requests
-- SSH access to your server
+- Git
+- Node.js 18+ and npm
 - Domain name (optional but recommended)
 
-#### Step 1: Set up self-hosted Supabase
+### Step 1: Set Up Self-hosted Supabase
 
-1. Clone the Supabase repository:
+1. **Clone the Supabase repository**:
 
-```sh
+```bash
 git clone https://github.com/supabase/supabase
 cd supabase/docker
 ```
 
-2. Create a copy of the example env file:
+2. **Create a copy of the example env file**:
 
-```sh
+```bash
 cp .env.example .env
 ```
 
-3. Edit the .env file to set your passwords and configuration:
+3. **Edit the .env file** to set your passwords and configuration:
 
-```sh
+```bash
 nano .env
 ```
 
-4. Generate JWT secrets:
+4. **Generate JWT secrets**:
 
-```sh
-openssl rand -base64 64 # For JWT_SECRET
-openssl rand -base64 64 # For ANON_KEY
-openssl rand -base64 64 # For SERVICE_ROLE_KEY
+```bash
+# Generate JWT_SECRET for authentication
+openssl rand -base64 64
+
+# Generate ANON_KEY (for public API calls)
+openssl rand -base64 64
+
+# Generate SERVICE_ROLE_KEY (for admin API calls)
+openssl rand -base64 64
 ```
 
-5. Update your .env file with these values, and set appropriate PostgreSQL credentials.
+5. **Update your .env file** with these values, and set appropriate PostgreSQL credentials.
 
-6. Start Supabase services:
+6. **Start Supabase services**:
 
-```sh
+```bash
 docker-compose up -d
 ```
 
-7. Verify all services are running:
+7. **Verify all services are running**:
 
-```sh
+```bash
 docker-compose ps
 ```
 
-#### Step 2: Deploy the frontend application
+### Step 2: Set Up the Database Schema
 
-1. Clone your application repository:
+1. **Connect to the PostgreSQL database**:
 
-```sh
+```bash
+docker exec -it supabase_db_1 psql -U postgres -d postgres
+```
+
+2. **Create the fortnox_credentials table**:
+
+```sql
+CREATE TABLE IF NOT EXISTS fortnox_credentials (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    client_id TEXT NOT NULL,
+    client_secret TEXT NOT NULL,
+    access_token TEXT,
+    refresh_token TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Add Row Level Security
+ALTER TABLE fortnox_credentials ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can view their own Fortnox credentials"
+    ON fortnox_credentials
+    FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own Fortnox credentials"
+    ON fortnox_credentials
+    FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own Fortnox credentials"
+    ON fortnox_credentials
+    FOR UPDATE
+    USING (auth.uid() = user_id);
+```
+
+3. **Exit PostgreSQL**:
+
+```sql
+\q
+```
+
+### Step 3: Configure Supabase Edge Functions
+
+For the Fortnox API integration, you'll need to create a Supabase Edge Function:
+
+1. **Set up Supabase CLI**:
+
+```bash
+npm install -g supabase
+```
+
+2. **Login to your Supabase instance**:
+
+```bash
+supabase login
+```
+
+3. **Initialize Supabase in your project directory**:
+
+```bash
+cd /path/to/your/project
+supabase init
+```
+
+4. **Create an Edge Function for Fortnox integration**:
+
+```bash
+mkdir -p supabase/functions/fortnox-export
+touch supabase/functions/fortnox-export/index.ts
+```
+
+5. **Edit the Edge Function**:
+
+```bash
+nano supabase/functions/fortnox-export/index.ts
+```
+
+6. **Add the following code to the Edge Function**:
+
+```typescript
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
+    
+    // Get the JWT token from the request
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Get the user from the token
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Get the Fortnox credentials for this user
+    const { data: credentials, error: credentialsError } = await supabaseClient
+      .from('fortnox_credentials')
+      .select('client_id, client_secret, access_token, refresh_token')
+      .eq('user_id', user.id)
+      .single()
+      
+    if (credentialsError || !credentials) {
+      return new Response(
+        JSON.stringify({ error: 'Fortnox credentials not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    // Get the invoice data from the request
+    const invoiceData = await req.json()
+    
+    // In a real implementation, you would use the credentials and invoice data
+    // to make API calls to Fortnox
+    
+    // For now, just return success
+    return new Response(
+      JSON.stringify({ success: true, message: 'Invoice exported to Fortnox (simulated)' }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})
+```
+
+7. **Deploy the Edge Function**:
+
+```bash
+supabase functions deploy fortnox-export --project-ref <your-supabase-project-ref>
+```
+
+### Step 4: Deploy the Frontend Application
+
+1. **Clone your application repository**:
+
+```bash
 git clone <YOUR_GIT_URL>
 cd <YOUR_PROJECT_NAME>
 ```
 
-2. Create a .env file for your production environment:
+2. **Create a .env file for your production environment**:
 
-```sh
+```bash
 touch .env.production
 ```
 
-3. Add your Supabase configuration (replace with your actual server address and keys):
+3. **Add your Supabase configuration**:
 
 ```
-VITE_SUPABASE_URL=https://your-supabase-domain-or-ip/
-VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SUPABASE_URL=http://your-server-ip:8000
+VITE_SUPABASE_ANON_KEY=your-anon-key-from-earlier-steps
 ```
 
-4. Install dependencies and build the application:
+4. **Install dependencies and build the application**:
 
-```sh
+```bash
 npm install
 npm run build
 ```
 
-5. Set up Nginx to serve the built frontend files:
+5. **Set up Nginx to serve the built frontend files**:
 
-```sh
-sudo nano /etc/nginx/sites-available/your-app
+```bash
+sudo apt update
+sudo apt install nginx
+sudo nano /etc/nginx/sites-available/freelancer-crm
 ```
 
-6. Add this Nginx configuration:
+6. **Add this Nginx configuration**:
 
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;  # Replace with your domain or server IP
+    server_name your-domain-or-ip;
 
     root /path/to/your/project/dist;
     index index.html;
@@ -174,115 +284,146 @@ server {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location /auth/v1/ {
         proxy_pass http://localhost:9999;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location /storage/v1/ {
         proxy_pass http://localhost:9000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-7. Enable the site and restart Nginx:
+7. **Enable the site and restart Nginx**:
 
-```sh
-sudo ln -s /etc/nginx/sites-available/your-app /etc/nginx/sites-enabled/
+```bash
+sudo ln -s /etc/nginx/sites-available/freelancer-crm /etc/nginx/sites-enabled/
 sudo nginx -t  # Test the configuration
 sudo systemctl restart nginx
 ```
 
-8. (Optional) Set up SSL with Certbot:
+8. **(Optional) Set up SSL with Certbot**:
 
-```sh
+```bash
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
 ```
 
-#### Step 3: Initialize your database schema
+### Step 5: Create an Initial Admin User
 
-1. Create your database schema:
+1. **Use the Supabase UI** to create an initial admin user:
 
-```sh
-# Connect to the PostgreSQL instance
-docker exec -it supabase_db_1 psql -U postgres
+   - Open your browser and navigate to `http://your-server-ip:3000`
+   - Log in with the email and password you set in the `.env` file
+   - Go to Authentication > Users and create a new user
 
-# Inside PostgreSQL, create your tables (example)
-CREATE TABLE clients (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  email TEXT,
-  company TEXT,
-  phone TEXT,
-  organization_number TEXT
-);
+2. **Alternatively, use the API**:
 
-# Create other tables as needed
+```bash
+curl -X POST 'http://your-server-ip:8000/auth/v1/signup' \
+-H "apikey: your-anon-key" \
+-H "Content-Type: application/json" \
+--data '{"email":"admin@example.com","password":"strong-password"}'
 ```
 
-2. Set up Row Level Security (RLS) policies as required:
+### Step 6: Regular Maintenance
 
-```sql
-ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow authenticated users to read clients" ON clients FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated users to insert clients" ON clients FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+1. **Set up automated backups**:
+
+```bash
+# Create a backup script
+nano /root/backup-supabase.sh
 ```
 
-#### Step 4: Maintenance and Backups
+2. **Add this content to the script**:
 
-1. Set up a backup schedule:
-
-```sh
-# Example backup script - save as /root/backup-db.sh
+```bash
 #!/bin/bash
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_DIR="/var/backups/supabase"
+
 mkdir -p $BACKUP_DIR
+
+# Backup PostgreSQL
 docker exec supabase_db_1 pg_dump -U postgres postgres > $BACKUP_DIR/db_backup_$TIMESTAMP.sql
+
+# Compress the backup
+gzip $BACKUP_DIR/db_backup_$TIMESTAMP.sql
+
+# Keep only the last 7 backups
+find $BACKUP_DIR -name "db_backup_*.sql.gz" -type f -mtime +7 -delete
 ```
 
-2. Make it executable and add to crontab:
+3. **Make the script executable and add to cron**:
 
-```sh
-chmod +x /root/backup-db.sh
+```bash
+chmod +x /root/backup-supabase.sh
 crontab -e
-# Add: 0 2 * * * /root/backup-db.sh
+
+# Add this line to run daily at 2 AM
+0 2 * * * /root/backup-supabase.sh
 ```
 
-#### Updating the Application
+### Updating the Application
 
 To update your application with new changes:
 
-```sh
+```bash
 cd /path/to/your/project
 git pull
 npm install
 npm run build
 ```
 
-#### Troubleshooting
+To update Supabase:
 
-- Check Docker container logs: `docker logs supabase_db_1`
-- Check Nginx logs: `sudo tail -f /var/log/nginx/error.log`
-- Check application logs: `sudo journalctl -u your-app-service`
+```bash
+cd /path/to/supabase/docker
+git pull
+docker-compose down
+docker-compose up -d
+```
 
-## Can I connect a custom domain to my Lovable project?
+## Troubleshooting
 
-Yes it is!
+1. **Check Supabase logs**:
+```bash
+cd /path/to/supabase/docker
+docker-compose logs -f
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+2. **Check nginx logs**:
+```bash
+sudo tail -f /var/log/nginx/error.log
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+3. **Check Edge Function logs**:
+```bash
+supabase functions logs --project-ref <your-project-ref>
+```
 
+4. **Reset database password** (if needed):
+```bash
+docker exec -it supabase_db_1 psql -U postgres
+ALTER USER postgres WITH PASSWORD 'new-password';
+```
+
+5. **Restart all services**:
+```bash
+cd /path/to/supabase/docker
+docker-compose restart
+sudo systemctl restart nginx
+```
+
+## Support and Resources
+
+- [Supabase Documentation](https://supabase.com/docs)
+- [Supabase Self-Hosting Guide](https://supabase.com/docs/guides/hosting/docker)
+- [Nginx Documentation](https://nginx.org/en/docs/)
+- [Docker Documentation](https://docs.docker.com/)

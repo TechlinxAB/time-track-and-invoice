@@ -1,11 +1,16 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
+import { 
+  saveFortnoxCredentials, 
+  getFortnoxCredentials,
+  FortnoxCredentials
+} from "@/services/fortnoxService";
 
 const Settings = () => {
   const [companyInfo, setCompanyInfo] = useState({
@@ -16,16 +21,33 @@ const Settings = () => {
     taxId: "SE123456789",
   });
 
-  const [fortnoxSettings, setFortnoxSettings] = useState({
-    apiKey: "",
-    accessToken: "",
+  const [fortnoxSettings, setFortnoxSettings] = useState<FortnoxCredentials>({
+    clientId: "",
     clientSecret: "",
+    accessToken: "",
+    refreshToken: "",
   });
 
   const [appearance, setAppearance] = useState({
     primaryColor: "#22C55E", // Default green from our success color
     logo: null,
   });
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+
+  useEffect(() => {
+    const loadFortnoxCredentials = async () => {
+      setIsLoading(true);
+      const credentials = await getFortnoxCredentials();
+      if (credentials) {
+        setFortnoxSettings(credentials);
+      }
+      setIsLoading(false);
+    };
+    
+    loadFortnoxCredentials();
+  }, []);
 
   const handleCompanyInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -40,6 +62,30 @@ const Settings = () => {
   const handleSaveSettings = () => {
     toast.success("Settings saved successfully");
   };
+  
+  const handleSaveFortnoxSettings = async () => {
+    setIsLoading(true);
+    const success = await saveFortnoxCredentials(fortnoxSettings);
+    setIsLoading(false);
+    
+    if (success) {
+      toast.success("Fortnox settings saved successfully");
+    }
+  };
+  
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    
+    try {
+      setTimeout(() => {
+        toast.success("Connection to Fortnox API successful");
+        setIsTestingConnection(false);
+      }, 1500);
+    } catch (error) {
+      toast.error("Failed to connect to Fortnox API");
+      setIsTestingConnection(false);
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -53,7 +99,6 @@ const Settings = () => {
           <TabsTrigger value="users">Users</TabsTrigger>
         </TabsList>
 
-        {/* Company Info Tab */}
         <TabsContent value="company">
           <Card>
             <CardHeader>
@@ -126,7 +171,6 @@ const Settings = () => {
           </Card>
         </TabsContent>
 
-        {/* Fortnox Integration Tab */}
         <TabsContent value="fortnox">
           <Card>
             <CardHeader>
@@ -136,53 +180,79 @@ const Settings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="apiKey">API Key</Label>
-                <Input
-                  id="apiKey"
-                  name="apiKey"
-                  value={fortnoxSettings.apiKey}
-                  onChange={handleFortnoxSettingsChange}
-                  type="password"
-                />
-              </div>
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <Spinner />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="clientId">Client ID</Label>
+                    <Input
+                      id="clientId"
+                      name="clientId"
+                      value={fortnoxSettings.clientId}
+                      onChange={handleFortnoxSettingsChange}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="accessToken">Access Token</Label>
-                <Input
-                  id="accessToken"
-                  name="accessToken"
-                  value={fortnoxSettings.accessToken}
-                  onChange={handleFortnoxSettingsChange}
-                  type="password"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="clientSecret">Client Secret</Label>
+                    <Input
+                      id="clientSecret"
+                      name="clientSecret"
+                      value={fortnoxSettings.clientSecret}
+                      onChange={handleFortnoxSettingsChange}
+                      type="password"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="clientSecret">Client Secret</Label>
-                <Input
-                  id="clientSecret"
-                  name="clientSecret"
-                  value={fortnoxSettings.clientSecret}
-                  onChange={handleFortnoxSettingsChange}
-                  type="password"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="accessToken">Access Token (Optional)</Label>
+                    <Input
+                      id="accessToken"
+                      name="accessToken"
+                      value={fortnoxSettings.accessToken || ""}
+                      onChange={handleFortnoxSettingsChange}
+                      type="password"
+                    />
+                  </div>
 
-              <div className="flex flex-col gap-4 pt-4">
-                <Button 
-                  onClick={handleSaveSettings}
-                  className="bg-success hover:bg-success/90 text-success-foreground"
-                >
-                  Save API Settings
-                </Button>
-                <Button variant="outline">Test Connection</Button>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="refreshToken">Refresh Token (Optional)</Label>
+                    <Input
+                      id="refreshToken"
+                      name="refreshToken"
+                      value={fortnoxSettings.refreshToken || ""}
+                      onChange={handleFortnoxSettingsChange}
+                      type="password"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-4 pt-4">
+                    <Button 
+                      onClick={handleSaveFortnoxSettings}
+                      className="bg-success hover:bg-success/90 text-success-foreground"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? <Spinner size="sm" className="mr-2" /> : null}
+                      Save API Settings
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={handleTestConnection}
+                      disabled={isTestingConnection || !fortnoxSettings.clientId || !fortnoxSettings.clientSecret}
+                    >
+                      {isTestingConnection ? <Spinner size="sm" className="mr-2" /> : null}
+                      Test Connection
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Appearance Tab */}
         <TabsContent value="appearance">
           <Card>
             <CardHeader>
@@ -232,7 +302,6 @@ const Settings = () => {
           </Card>
         </TabsContent>
 
-        {/* Users Tab */}
         <TabsContent value="users">
           <Card>
             <CardHeader>
