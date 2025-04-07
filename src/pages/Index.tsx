@@ -64,6 +64,11 @@ const Index = () => {
     const current = localStorage.getItem('force_http_backend') === 'true';
     localStorage.setItem('force_http_backend', (!current).toString());
     
+    // If enabling HTTP backend, disable reverse proxy
+    if (!current) {
+      localStorage.setItem('use_reverse_proxy', 'false');
+    }
+    
     toast({
       title: "Backend Protocol Changed",
       description: current 
@@ -73,12 +78,49 @@ const Index = () => {
     
     setTimeout(() => window.location.reload(), 1500);
   };
+  
+  const handleReverseProxyToggle = () => {
+    const current = localStorage.getItem('use_reverse_proxy') === 'true';
+    localStorage.setItem('use_reverse_proxy', (!current).toString());
+    
+    // If enabling reverse proxy, disable HTTP backend
+    if (!current) {
+      localStorage.setItem('force_http_backend', 'false');
+    }
+    
+    toast({
+      title: "Reverse Proxy Setting Changed",
+      description: current 
+        ? "Disabled reverse proxy. Using direct connection. Reloading..." 
+        : "Enabled reverse proxy for Supabase connection. Reloading...",
+    });
+    
+    setTimeout(() => window.location.reload(), 1500);
+  };
+  
+  const handleConfigureReverseProxy = () => {
+    const path = prompt(
+      "Enter your reverse proxy path (e.g. /supabase):", 
+      localStorage.getItem('reverse_proxy_path') || "/supabase"
+    );
+    
+    if (path) {
+      localStorage.setItem('reverse_proxy_path', path);
+      
+      toast({
+        title: "Reverse Proxy Path Updated",
+        description: `Path set to: ${path}. Reloading...`,
+      });
+      
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  };
 
   const checkMixedContentError = () => {
     const pageProtocol = window.location.protocol;
     const apiProtocol = connectionInfo.protocol + ':';
     
-    if (pageProtocol === 'https:' && apiProtocol === 'http:') {
+    if (pageProtocol === 'https:' && apiProtocol === 'http:' && !connectionInfo.reverseProxy) {
       return true;
     }
     return false;
@@ -102,6 +144,8 @@ const Index = () => {
               <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
               <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
               <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
+              <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
+              {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
               
               {hasMixedContentIssue && (
@@ -131,7 +175,11 @@ const Index = () => {
               <div className="bg-amber-50 border-l-4 border-amber-500 p-3 mb-4">
                 <p className="font-bold">Mixed Content Error Detected</p>
                 <p className="text-sm">Your browser is blocking insecure (HTTP) requests from a secure (HTTPS) page.</p>
-                <p className="text-sm mt-2">Try clicking "Enable HTTP Backend" below to force using HTTP for backend calls.</p>
+                <p className="text-sm mt-2">You have two options to fix this:</p>
+                <ol className="list-decimal pl-5 text-sm">
+                  <li>Click "Enable HTTP Backend" (less secure but simpler)</li>
+                  <li>Click "Enable Reverse Proxy" if you have configured a reverse proxy (recommended)</li>
+                </ol>
               </div>
             ) : (
               <ul className="list-disc pl-5 mb-4 text-sm text-gray-700">
@@ -150,6 +198,8 @@ const Index = () => {
               <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
               <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
               <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
+              <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
+              {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
               
               {hasMixedContentIssue && (
@@ -190,6 +240,26 @@ const Index = () => {
                   ? "Disable HTTP Backend" 
                   : "Enable HTTP Backend"}
               </Button>
+              
+              <Button 
+                variant={localStorage.getItem('use_reverse_proxy') === 'true' ? "default" : "outline"}
+                className="px-4 py-2 rounded w-full"
+                onClick={handleReverseProxyToggle}
+              >
+                {localStorage.getItem('use_reverse_proxy') === 'true' 
+                  ? "Disable Reverse Proxy" 
+                  : "Enable Reverse Proxy"}
+              </Button>
+              
+              {localStorage.getItem('use_reverse_proxy') === 'true' && (
+                <Button 
+                  variant="outline"
+                  className="px-4 py-2 rounded w-full"
+                  onClick={handleConfigureReverseProxy}
+                >
+                  Configure Proxy Path
+                </Button>
+              )}
               
               <Button 
                 variant="ghost"

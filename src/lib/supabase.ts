@@ -8,13 +8,22 @@ const isProduction = window.location.hostname !== 'localhost';
 // Get local Supabase host if specified
 const localSupabaseHost = localStorage.getItem('supabase_local_ip') || 'localhost';
 
+// Check if we're using a reverse proxy path
+const useReverseProxy = localStorage.getItem('use_reverse_proxy') === 'true';
+const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
+
 // Check if we're in HTTPS but need to use HTTP backend
 const isUsingHttpsWithHttpBackend = window.location.protocol === 'https:' && 
   localStorage.getItem('force_http_backend') === 'true';
 
-// For production, always use HTTPS unless forced to HTTP backend
+// Determine the Supabase URL based on environment and configuration
 let supabaseUrl;
-if (isProduction) {
+
+if (useReverseProxy) {
+  // Use the reverse proxy path with the current origin
+  supabaseUrl = `${window.location.origin}${reverseProxyPath}`;
+  console.log('Using reverse proxy for Supabase at:', supabaseUrl);
+} else if (isProduction) {
   if (isUsingHttpsWithHttpBackend) {
     // Use HTTP for backend even when frontend is HTTPS (user explicitly enabled this)
     supabaseUrl = `http://${localSupabaseHost}:8000`;
@@ -35,6 +44,8 @@ console.log('Protocol being used:', window.location.protocol);
 console.log('Page is served via:', window.location.protocol);
 console.log('Using Supabase URL:', supabaseUrl);
 console.log('Using HTTP backend with HTTPS frontend:', isUsingHttpsWithHttpBackend);
+console.log('Using reverse proxy:', useReverseProxy);
+if (useReverseProxy) console.log('Reverse proxy path:', reverseProxyPath);
 
 if (!supabaseKey) {
   console.warn(
@@ -66,7 +77,8 @@ console.log('Supabase client configured with:', {
   url: supabaseUrl,
   keyProvided: !!supabaseKey,
   protocol: supabaseUrl.split(':')[0],
-  usingHttpBackendWithHttpsFrontend: isUsingHttpsWithHttpBackend
+  usingHttpBackendWithHttpsFrontend: isUsingHttpsWithHttpBackend,
+  usingReverseProxy: useReverseProxy
 });
 
 // Test the connection when the app initializes
@@ -127,7 +139,9 @@ export const getConnectionDetails = () => {
     localHost: isProduction ? null : localSupabaseHost,
     protocol: supabaseUrl.split(':')[0],
     pageProtocol: window.location.protocol,
-    forceHttpBackend: isUsingHttpsWithHttpBackend
+    forceHttpBackend: isUsingHttpsWithHttpBackend,
+    reverseProxy: useReverseProxy,
+    reverseProxyPath: useReverseProxy ? reverseProxyPath : null
   };
 };
 

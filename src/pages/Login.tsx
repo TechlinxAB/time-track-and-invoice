@@ -17,6 +17,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [connectionInfo, setConnectionInfo] = useState<{
     url: string; 
     protocol: string;
@@ -24,6 +25,8 @@ const Login = () => {
     usingProxy: boolean;
     localHost?: string;
     forceHttpBackend: boolean;
+    reverseProxy: boolean;
+    reverseProxyPath?: string | null;
   }>(() => {
     const supabaseConfig = supabase.constructor as any;
     const url = supabaseConfig?.supabaseUrl || "http://localhost:8000";
@@ -31,20 +34,26 @@ const Login = () => {
     const usingProxy = url === window.location.origin;
     const localHost = localStorage.getItem('supabase_local_ip') || 'localhost';
     const forceHttpBackend = localStorage.getItem('force_http_backend') === 'true';
+    const reverseProxy = localStorage.getItem('use_reverse_proxy') === 'true';
+    const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
+    
     return { 
       url, 
       protocol,
       pageProtocol: window.location.protocol,
       usingProxy,
       localHost,
-      forceHttpBackend
+      forceHttpBackend,
+      reverseProxy,
+      reverseProxyPath
     };
   });
   
   const hasMixedContentIssue = 
     connectionInfo.pageProtocol === 'https:' && 
     connectionInfo.protocol === 'http' &&
-    !connectionInfo.forceHttpBackend;
+    !connectionInfo.forceHttpBackend &&
+    !connectionInfo.reverseProxy;
 
   // If user is already logged in, redirect to the dashboard
   if (user) {
@@ -61,6 +70,10 @@ const Login = () => {
       console.log("Using Supabase URL:", connectionInfo.url);
       console.log("Using Proxy:", connectionInfo.usingProxy ? "Yes" : "No");
       console.log("Force HTTP backend:", connectionInfo.forceHttpBackend ? "Yes" : "No");
+      console.log("Using Reverse Proxy:", connectionInfo.reverseProxy ? "Yes" : "No");
+      if (connectionInfo.reverseProxy) {
+        console.log("Reverse Proxy Path:", connectionInfo.reverseProxyPath);
+      }
       
       let result;
 
@@ -89,7 +102,7 @@ const Login = () => {
         } else if (hasMixedContentIssue) {
           toast({
             title: "Mixed Content Error",
-            description: "Try enabling 'HTTP Backend' option below to fix mixed content issues.",
+            description: "Try enabling 'HTTP Backend' or 'Reverse Proxy' option to fix mixed content issues.",
             variant: "destructive"
           });
         } else {
@@ -133,6 +146,11 @@ const Login = () => {
     const current = localStorage.getItem('force_http_backend') === 'true';
     localStorage.setItem('force_http_backend', (!current).toString());
     
+    // If enabling HTTP backend, disable reverse proxy (they're alternatives)
+    if (!current) {
+      localStorage.setItem('use_reverse_proxy', 'false');
+    }
+    
     toast({
       title: "Backend Protocol Changed",
       description: current 
@@ -141,6 +159,43 @@ const Login = () => {
     });
     
     setTimeout(() => window.location.reload(), 1500);
+  };
+  
+  const handleReverseProxyToggle = () => {
+    const current = localStorage.getItem('use_reverse_proxy') === 'true';
+    localStorage.setItem('use_reverse_proxy', (!current).toString());
+    
+    // If enabling reverse proxy, disable force HTTP backend (they're alternatives)
+    if (!current) {
+      localStorage.setItem('force_http_backend', 'false');
+    }
+    
+    toast({
+      title: "Reverse Proxy Setting Changed",
+      description: current 
+        ? "Disabled reverse proxy. Using direct connection. Reloading..." 
+        : "Enabled reverse proxy for Supabase connection. Reloading...",
+    });
+    
+    setTimeout(() => window.location.reload(), 1500);
+  };
+  
+  const handleConfigureReverseProxy = () => {
+    const path = prompt(
+      "Enter your reverse proxy path (e.g. /supabase):", 
+      localStorage.getItem('reverse_proxy_path') || "/supabase"
+    );
+    
+    if (path) {
+      localStorage.setItem('reverse_proxy_path', path);
+      
+      toast({
+        title: "Reverse Proxy Path Updated",
+        description: `Path set to: ${path}. Reloading...`,
+      });
+      
+      setTimeout(() => window.location.reload(), 1500);
+    }
   };
 
   return (
@@ -187,36 +242,75 @@ const Login = () => {
             </div>
           )}
           
-          <div className="mt-4 text-xs bg-gray-100 p-3 rounded text-left">
-            <p><strong>API URL:</strong> {connectionInfo.url}</p>
-            <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
-            <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
-            <p><strong>Connecting Directly:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
-            <p><strong>Local Database Host:</strong> {connectionInfo.localHost}</p>
-            <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
-            
-            {hasMixedContentIssue && (
-              <div className="mt-2 p-2 bg-amber-50 border-l-4 border-amber-400 text-amber-800">
-                <p className="font-semibold">Mixed Content Issue Detected</p>
-                <p>Try enabling HTTP Backend option below</p>
-              </div>
-            )}
-            
-            <div className="flex space-x-2 mt-2">
-              <button 
-                onClick={handleConfigureLocalDb} 
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Change Local IP
-              </button>
-              <button 
-                onClick={handleHttpBackendToggle} 
-                className="text-xs text-blue-600 hover:underline"
-              >
-                {connectionInfo.forceHttpBackend ? "Disable HTTP Backend" : "Enable HTTP Backend"}
-              </button>
-            </div>
+          <div className="mt-4">
+            <Button 
+              variant="link" 
+              className="px-0 text-xs text-muted-foreground"
+              onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+            >
+              {showAdvancedOptions ? "Hide Connection Settings" : "Show Connection Settings"}
+            </Button>
           </div>
+          
+          {showAdvancedOptions && (
+            <div className="mt-2 text-xs bg-gray-100 p-3 rounded text-left">
+              <p><strong>API URL:</strong> {connectionInfo.url}</p>
+              <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
+              <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
+              <p><strong>Connecting Directly:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
+              <p><strong>Local Database Host:</strong> {connectionInfo.localHost}</p>
+              <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
+              <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
+              {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
+              
+              {hasMixedContentIssue && (
+                <div className="mt-2 p-2 bg-amber-50 border-l-4 border-amber-400 text-amber-800">
+                  <p className="font-semibold">Mixed Content Issue Detected</p>
+                  <p>Try enabling HTTP Backend or Reverse Proxy option below</p>
+                </div>
+              )}
+              
+              <div className="flex flex-col space-y-2 mt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="text-xs"
+                  onClick={handleConfigureLocalDb}
+                >
+                  Change Local IP
+                </Button>
+                
+                <Button 
+                  variant={connectionInfo.forceHttpBackend ? "default" : "outline"} 
+                  size="sm"
+                  className="text-xs"
+                  onClick={handleHttpBackendToggle}
+                >
+                  {connectionInfo.forceHttpBackend ? "Disable HTTP Backend" : "Enable HTTP Backend"}
+                </Button>
+                
+                <Button 
+                  variant={connectionInfo.reverseProxy ? "default" : "outline"} 
+                  size="sm"
+                  className="text-xs"
+                  onClick={handleReverseProxyToggle}
+                >
+                  {connectionInfo.reverseProxy ? "Disable Reverse Proxy" : "Enable Reverse Proxy"}
+                </Button>
+                
+                {connectionInfo.reverseProxy && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-xs"
+                    onClick={handleConfigureReverseProxy}
+                  >
+                    Configure Proxy Path
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <Button
