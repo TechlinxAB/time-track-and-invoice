@@ -1,6 +1,7 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { testSupabaseConnection, getConnectionDetails } from "../lib/supabase";
+import { testSupabaseConnection, supabase, getConnectionDetails } from "../lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +18,7 @@ const Index = () => {
         setConnectionStatus("checking");
         setErrorMessage(null);
         
+        // Test Supabase connection on initial load
         const result = await testSupabaseConnection();
         
         if (!result.success) {
@@ -30,15 +32,30 @@ const Index = () => {
             setErrorMessage(result.error || "Could not connect to Supabase");
           }
           
+          toast({
+            title: result.timeout ? "Connection Timeout" : "Connection Error",
+            description: result.timeout 
+              ? `Connection timed out after ${connectionInfo.connectionTimeout/1000} seconds. Supabase might be unreachable.`
+              : "Failed to connect to the database. Please check your configuration.",
+            variant: "destructive",
+          });
+          
           return;
         }
         
         setConnectionStatus("success");
+        // Redirect to dashboard only if connection is successful
         navigate("/dashboard");
       } catch (error) {
         console.error("Error checking connection:", error);
         setConnectionStatus("error");
         setErrorMessage(error instanceof Error ? error.message : "Unknown error occurred");
+        
+        toast({
+          title: "Connection Error",
+          description: "An unexpected error occurred while checking connection.",
+          variant: "destructive",
+        });
       } finally {
         setIsRetrying(false);
       }
@@ -50,17 +67,53 @@ const Index = () => {
   const handleRetry = () => {
     setIsRetrying(true);
   };
+
+  const handleManualConnect = () => {
+    // For local development with IP address
+    const localIp = prompt("Enter your local Supabase IP address:", localStorage.getItem('supabase_local_ip') || "localhost");
+    if (localIp) {
+      localStorage.setItem('supabase_local_ip', localIp);
+      window.location.reload();
+    }
+  };
+  
+  const handleHttpsToggle = () => {
+    // Toggle the force_http_backend setting
+    const current = localStorage.getItem('force_http_backend') === 'true';
+    localStorage.setItem('force_http_backend', (!current).toString());
+    
+    // If enabling HTTP backend, disable reverse proxy
+    if (!current) {
+      localStorage.setItem('use_reverse_proxy', 'false');
+    }
+    
+    toast({
+      title: "Backend Protocol Changed",
+      description: current 
+        ? "Using same protocol for frontend and backend. Reloading..." 
+        : "Using HTTP backend with HTTPS frontend. Reloading...",
+    });
+    
+    setTimeout(() => window.location.reload(), 1500);
+  };
   
   const handleReverseProxyToggle = () => {
     const current = localStorage.getItem('use_reverse_proxy') === 'true';
     localStorage.setItem('use_reverse_proxy', (!current).toString());
     
+    // If enabling reverse proxy, disable HTTP backend
+    if (!current) {
+      localStorage.setItem('force_http_backend', 'false');
+    }
+    
     toast({
-      title: "Connection Settings Changed",
-      description: "Reloading application with new settings...",
+      title: "Reverse Proxy Setting Changed",
+      description: current 
+        ? "Disabled reverse proxy. Using direct connection. Reloading..." 
+        : "Enabled reverse proxy for Supabase connection. Reloading...",
     });
     
-    setTimeout(() => window.location.reload(), 1000);
+    setTimeout(() => window.location.reload(), 1500);
   };
   
   const handleConfigureReverseProxy = () => {
@@ -77,9 +130,21 @@ const Index = () => {
         description: `Path set to: ${path}. Reloading...`,
       });
       
-      setTimeout(() => window.location.reload(), 1000);
+      setTimeout(() => window.location.reload(), 1500);
     }
   };
+
+  const checkMixedContentError = () => {
+    const pageProtocol = window.location.protocol;
+    const apiProtocol = connectionInfo.protocol + ':';
+    
+    if (pageProtocol === 'https:' && apiProtocol === 'http:' && !connectionInfo.reverseProxy) {
+      return true;
+    }
+    return false;
+  };
+
+  const hasMixedContentIssue = checkMixedContentError();
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -96,9 +161,17 @@ const Index = () => {
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
               <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
               <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
+              <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
               <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
-              {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
+              {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
+              {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
+              
+              {hasMixedContentIssue && (
+                <p className="text-red-500 font-semibold mt-2">
+                  ⚠️ Protocol Mismatch: HTTPS page cannot load HTTP content
+                </p>
+              )}
             </div>
           </>
         )}
@@ -118,18 +191,58 @@ const Index = () => {
             <p className="text-muted-foreground mb-3">
               {connectionStatus === "timeout" 
                 ? `Connection attempt timed out after ${connectionInfo.connectionTimeout/1000} seconds. Supabase might be unreachable.`
-                : `We couldn't connect to ${connectionInfo.url}.`}
+                : "We couldn't connect to the database. This could be due to:"}
             </p>
-                        
+            
+            {hasMixedContentIssue ? (
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-3 mb-4">
+                <p className="font-bold">Mixed Content Error Detected</p>
+                <p className="text-sm">Your browser is blocking insecure (HTTP) requests from a secure (HTTPS) page.</p>
+                <p className="text-sm mt-2">You have two options to fix this:</p>
+                <ol className="list-decimal pl-5 text-sm">
+                  <li>Click "Enable HTTP Backend" (less secure but simpler)</li>
+                  <li>Click "Enable Reverse Proxy" if you have configured a reverse proxy (recommended)</li>
+                </ol>
+              </div>
+            ) : connectionStatus === "timeout" ? (
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-3 mb-4">
+                <p className="font-bold">Connection Timeout</p>
+                <p className="text-sm">The connection attempt to Supabase took too long and timed out.</p>
+                <p className="text-sm mt-2">Possible reasons:</p>
+                <ul className="list-disc pl-5 text-sm">
+                  <li>Supabase is not running</li>
+                  <li>Supabase is not reachable at the configured URL/IP</li>
+                  <li>Network issues or firewall blocking the connection</li>
+                  <li>The host IP address is incorrect</li>
+                </ul>
+              </div>
+            ) : (
+              <ul className="list-disc pl-5 mb-4 text-sm text-gray-700">
+                <li>Incorrect Supabase URL or API key</li>
+                <li>Supabase service not running or unhealthy</li>
+                <li>Network connectivity issues</li>
+                <li>CORS or proxy configuration issues</li>
+                <li>Firewall blocking the connection</li>
+              </ul>
+            )}
+            
             <div className="mt-2 text-xs bg-gray-100 p-3 rounded text-left mb-4">
               <p><strong>Environment:</strong> {connectionInfo.environment}</p>
               <p><strong>URL:</strong> {connectionInfo.url}</p>
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
               <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
               <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
+              <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
               <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
-              {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
+              {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
+              {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
+              
+              {hasMixedContentIssue && (
+                <p className="text-red-500 font-semibold mt-2">
+                  ⚠️ Protocol Mismatch: HTTPS page trying to load HTTP content
+                </p>
+              )}
             </div>
             
             {errorMessage && (
@@ -145,6 +258,24 @@ const Index = () => {
                 disabled={isRetrying}
               >
                 {isRetrying ? "Retrying..." : "Retry Connection"}
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="px-4 py-2 rounded w-full"
+                onClick={handleManualConnect}
+              >
+                Configure Local IP
+              </Button>
+              
+              <Button 
+                variant={localStorage.getItem('force_http_backend') === 'true' ? "default" : "outline"}
+                className="px-4 py-2 rounded w-full"
+                onClick={handleHttpsToggle}
+              >
+                {localStorage.getItem('force_http_backend') === 'true' 
+                  ? "Disable HTTP Backend" 
+                  : "Enable HTTP Backend"}
               </Button>
               
               <Button 
