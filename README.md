@@ -15,11 +15,80 @@ This guide will walk you through setting up the application on a self-hosted Lin
 - Node.js 18+ and npm
 - Domain name (optional but recommended)
 
-### Step 1: Set Up Self-hosted Supabase
+### Installing Prerequisites
 
-1. **Clone the Supabase repository**:
+1. **Update your system packages**:
 
 ```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+2. **Install Docker**:
+
+```bash
+# Install required packages
+sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+
+# Add Docker's official GPG key
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# Add Docker repository
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+# Install Docker
+sudo apt update
+sudo apt install -y docker-ce
+
+# Verify Docker is running
+sudo systemctl status docker
+```
+
+3. **Install Docker Compose**:
+
+```bash
+# Download Docker Compose binary
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+# Apply executable permissions
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Create symbolic link
+sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+
+# Verify installation
+docker-compose --version
+```
+
+4. **Install Node.js and npm**:
+
+```bash
+# Install Node.js 18.x
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verify installation
+node --version
+npm --version
+```
+
+5. **Install Git**:
+
+```bash
+sudo apt install -y git
+git --version
+```
+
+### Step 1: Set Up Self-hosted Supabase
+
+1. **Create a directory for Supabase and clone the repository**:
+
+```bash
+# Create directory and navigate into it
+mkdir -p ~/supabase
+cd ~/supabase
+
+# Clone the Supabase repository
 git clone https://github.com/supabase/supabase
 cd supabase/docker
 ```
@@ -27,16 +96,18 @@ cd supabase/docker
 2. **Create a copy of the example env file**:
 
 ```bash
+# Make sure you're in the supabase/docker directory
 cp .env.example .env
 ```
 
 3. **Edit the .env file** to set your passwords and configuration:
 
 ```bash
+# Make sure you're in the supabase/docker directory
 nano .env
 ```
 
-4. **Generate JWT secrets**:
+4. **Generate JWT secrets** (from the supabase/docker directory):
 
 ```bash
 # Generate JWT_SECRET for authentication
@@ -51,15 +122,26 @@ openssl rand -base64 64
 
 5. **Update your .env file** with these values, and set appropriate PostgreSQL credentials.
 
+   **Important**: For older versions of Docker Compose (1.29.x), you need to modify the docker-compose.yml file to fix the environment variables:
+
+```bash
+# Make sure you're in the supabase/docker directory
+nano docker-compose.yml
+```
+
+Find all boolean values like `true` or `false` in environment variables and convert them to strings by adding quotes like `"true"` or `"false"`.
+
 6. **Start Supabase services**:
 
 ```bash
+# Make sure you're in the supabase/docker directory
 docker-compose up -d
 ```
 
 7. **Verify all services are running**:
 
 ```bash
+# Make sure you're in the supabase/docker directory
 docker-compose ps
 ```
 
@@ -68,6 +150,7 @@ docker-compose ps
 1. **Connect to the PostgreSQL database**:
 
 ```bash
+# Make sure you're in the supabase/docker directory
 docker exec -it supabase_db_1 psql -U postgres -d postgres
 ```
 
@@ -114,28 +197,38 @@ CREATE POLICY "Users can update their own Fortnox credentials"
 
 For the Fortnox API integration, you'll need to create a Supabase Edge Function:
 
-1. **Set up Supabase CLI**:
+1. **Set up Supabase CLI** (from your home directory):
 
 ```bash
+# Navigate to your home directory
+cd ~
+
+# Install Supabase CLI globally
 npm install -g supabase
 ```
 
 2. **Login to your Supabase instance**:
 
 ```bash
+# From any directory
 supabase login
 ```
 
 3. **Initialize Supabase in your project directory**:
 
 ```bash
-cd /path/to/your/project
+# Navigate to your project directory (create it if it doesn't exist)
+mkdir -p ~/freelancer-crm
+cd ~/freelancer-crm
+
+# Initialize Supabase
 supabase init
 ```
 
 4. **Create an Edge Function for Fortnox integration**:
 
 ```bash
+# Make sure you're in your project directory
 mkdir -p supabase/functions/fortnox-export
 touch supabase/functions/fortnox-export/index.ts
 ```
@@ -143,6 +236,7 @@ touch supabase/functions/fortnox-export/index.ts
 5. **Edit the Edge Function**:
 
 ```bash
+# Make sure you're in your project directory
 nano supabase/functions/fortnox-export/index.ts
 ```
 
@@ -225,14 +319,19 @@ serve(async (req) => {
 7. **Deploy the Edge Function**:
 
 ```bash
+# Make sure you're in your project directory
 supabase functions deploy fortnox-export --project-ref <your-supabase-project-ref>
 ```
 
 ### Step 4: Deploy the Frontend Application
 
-1. **Clone your application repository**:
+1. **Clone the application repository**:
 
 ```bash
+# Navigate to your home directory or preferred location
+cd ~/
+
+# Clone your repository
 git clone <YOUR_GIT_URL>
 cd <YOUR_PROJECT_NAME>
 ```
@@ -240,10 +339,18 @@ cd <YOUR_PROJECT_NAME>
 2. **Create a .env file for your production environment**:
 
 ```bash
+# Make sure you're in your project directory
 touch .env.production
 ```
 
 3. **Add your Supabase configuration**:
+
+```bash
+# Make sure you're in your project directory
+nano .env.production
+```
+
+Add the following content:
 
 ```
 VITE_SUPABASE_URL=http://your-server-ip:8000
@@ -253,6 +360,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-from-earlier-steps
 4. **Install dependencies and build the application**:
 
 ```bash
+# Make sure you're in your project directory
 npm install
 npm run build
 ```
@@ -338,7 +446,7 @@ curl -X POST 'http://your-server-ip:8000/auth/v1/signup' \
 
 ```bash
 # Create a backup script
-nano /root/backup-supabase.sh
+sudo nano /root/backup-supabase.sh
 ```
 
 2. **Add this content to the script**:
@@ -363,8 +471,8 @@ find $BACKUP_DIR -name "db_backup_*.sql.gz" -type f -mtime +7 -delete
 3. **Make the script executable and add to cron**:
 
 ```bash
-chmod +x /root/backup-supabase.sh
-crontab -e
+sudo chmod +x /root/backup-supabase.sh
+sudo crontab -e
 
 # Add this line to run daily at 2 AM
 0 2 * * * /root/backup-supabase.sh
@@ -375,6 +483,7 @@ crontab -e
 To update your application with new changes:
 
 ```bash
+# Navigate to your project directory
 cd /path/to/your/project
 git pull
 npm install
@@ -384,7 +493,8 @@ npm run build
 To update Supabase:
 
 ```bash
-cd /path/to/supabase/docker
+# Navigate to the supabase/docker directory
+cd ~/supabase/supabase/docker
 git pull
 docker-compose down
 docker-compose up -d
@@ -394,7 +504,8 @@ docker-compose up -d
 
 1. **Check Supabase logs**:
 ```bash
-cd /path/to/supabase/docker
+# Navigate to the supabase/docker directory
+cd ~/supabase/supabase/docker
 docker-compose logs -f
 ```
 
@@ -405,6 +516,7 @@ sudo tail -f /var/log/nginx/error.log
 
 3. **Check Edge Function logs**:
 ```bash
+# From your project directory where supabase is initialized
 supabase functions logs --project-ref <your-project-ref>
 ```
 
@@ -416,7 +528,8 @@ ALTER USER postgres WITH PASSWORD 'new-password';
 
 5. **Restart all services**:
 ```bash
-cd /path/to/supabase/docker
+# Navigate to the supabase/docker directory
+cd ~/supabase/supabase/docker
 docker-compose restart
 sudo systemctl restart nginx
 ```
@@ -427,3 +540,4 @@ sudo systemctl restart nginx
 - [Supabase Self-Hosting Guide](https://supabase.com/docs/guides/hosting/docker)
 - [Nginx Documentation](https://nginx.org/en/docs/)
 - [Docker Documentation](https://docs.docker.com/)
+
