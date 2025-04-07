@@ -7,36 +7,24 @@ import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [connectionStatus, setConnectionStatus] = useState<"checking" | "success" | "error" | "timeout">("checking");
+  const [connectionStatus, setConnectionStatus] = useState<"checking" | "success" | "error">("checking");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [connectionInfo, setConnectionInfo] = useState(() => getConnectionDetails());
-  const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        setConnectionStatus("checking");
-        setErrorMessage(null);
-        
         // Test Supabase connection on initial load
         const result = await testSupabaseConnection();
         
         if (!result.success) {
           console.warn("⚠️ Supabase connection failed:", result.error);
-          
-          if (result.timeout) {
-            setConnectionStatus("timeout");
-            setErrorMessage(`Connection timed out after ${connectionInfo.connectionTimeout/1000} seconds. Supabase might be unreachable.`);
-          } else {
-            setConnectionStatus("error");
-            setErrorMessage(result.error || "Could not connect to Supabase");
-          }
+          setConnectionStatus("error");
+          setErrorMessage(result.error || "Could not connect to Supabase");
           
           toast({
-            title: result.timeout ? "Connection Timeout" : "Connection Error",
-            description: result.timeout 
-              ? `Connection timed out after ${connectionInfo.connectionTimeout/1000} seconds. Supabase might be unreachable.`
-              : "Failed to connect to the database. Please check your configuration.",
+            title: "Connection Error",
+            description: "Failed to connect to the database. Please check your configuration.",
             variant: "destructive",
           });
           
@@ -56,17 +44,11 @@ const Index = () => {
           description: "An unexpected error occurred while checking connection.",
           variant: "destructive",
         });
-      } finally {
-        setIsRetrying(false);
       }
     };
     
     checkConnection();
-  }, [navigate, isRetrying, connectionInfo.connectionTimeout]);
-
-  const handleRetry = () => {
-    setIsRetrying(true);
-  };
+  }, [navigate]);
 
   const handleManualConnect = () => {
     // For local development with IP address
@@ -163,7 +145,6 @@ const Index = () => {
               <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
               <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
               <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
-              <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
               {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
               
@@ -183,15 +164,11 @@ const Index = () => {
           </>
         )}
         
-        {(connectionStatus === "error" || connectionStatus === "timeout") && (
+        {connectionStatus === "error" && (
           <div className="text-left">
-            <p className="text-red-600 font-semibold mb-2">
-              {connectionStatus === "timeout" ? "Connection Timed Out" : "Connection Failed"}
-            </p>
+            <p className="text-red-600 font-semibold mb-2">Connection Failed</p>
             <p className="text-muted-foreground mb-3">
-              {connectionStatus === "timeout" 
-                ? `Connection attempt timed out after ${connectionInfo.connectionTimeout/1000} seconds. Supabase might be unreachable.`
-                : "We couldn't connect to the database. This could be due to:"}
+              We couldn't connect to the database. This could be due to:
             </p>
             
             {hasMixedContentIssue ? (
@@ -203,18 +180,6 @@ const Index = () => {
                   <li>Click "Enable HTTP Backend" (less secure but simpler)</li>
                   <li>Click "Enable Reverse Proxy" if you have configured a reverse proxy (recommended)</li>
                 </ol>
-              </div>
-            ) : connectionStatus === "timeout" ? (
-              <div className="bg-amber-50 border-l-4 border-amber-500 p-3 mb-4">
-                <p className="font-bold">Connection Timeout</p>
-                <p className="text-sm">The connection attempt to Supabase took too long and timed out.</p>
-                <p className="text-sm mt-2">Possible reasons:</p>
-                <ul className="list-disc pl-5 text-sm">
-                  <li>Supabase is not running</li>
-                  <li>Supabase is not reachable at the configured URL/IP</li>
-                  <li>Network issues or firewall blocking the connection</li>
-                  <li>The host IP address is incorrect</li>
-                </ul>
               </div>
             ) : (
               <ul className="list-disc pl-5 mb-4 text-sm text-gray-700">
@@ -234,7 +199,6 @@ const Index = () => {
               <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
               <p><strong>Force HTTP Backend:</strong> {connectionInfo.forceHttpBackend ? "Yes" : "No"}</p>
               <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
-              <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
               {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               {connectionInfo.localHost && <p><strong>Local Host:</strong> {connectionInfo.localHost}</p>}
               
@@ -254,10 +218,9 @@ const Index = () => {
             <div className="flex flex-col space-y-2">
               <Button 
                 className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 w-full"
-                onClick={handleRetry}
-                disabled={isRetrying}
+                onClick={() => window.location.reload()}
               >
-                {isRetrying ? "Retrying..." : "Retry Connection"}
+                Retry Connection
               </Button>
               
               <Button 
