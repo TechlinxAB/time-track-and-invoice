@@ -17,7 +17,7 @@ const localStorageKey = localStorage.getItem('supabase_anon_key');
 const finalSupabaseKey = supabaseKey || localStorageKey || defaultSupabaseKey;
 
 // Always use direct URL by default
-let supabaseUrl = directSupabaseUrl;
+const supabaseUrl = directSupabaseUrl;
 
 console.log('Using Supabase URL:', supabaseUrl);
 console.log('API Key provided:', !!finalSupabaseKey);

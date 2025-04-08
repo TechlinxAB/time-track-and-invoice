@@ -14,7 +14,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // If user is already logged in, redirect to the dashboard
   if (user) {
@@ -24,7 +24,7 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorDetails(null);
+    setErrorMessage(null);
 
     try {
       console.log("Starting authentication process...");
@@ -45,7 +45,7 @@ const Login = () => {
         const errorMsg = result.error?.message || "Authentication failed";
         console.error("Auth error:", errorMsg);
         console.error("Full error details:", JSON.stringify(result.error, null, 2));
-        setErrorDetails(JSON.stringify(result.error, null, 2));
+        setErrorMessage(errorMsg);
         
         toast({
           title: "Authentication Failed",
@@ -62,7 +62,7 @@ const Login = () => {
     } catch (error) {
       console.error("Uncaught auth error:", error);
       const errorMsg = error instanceof Error ? error.message : "An error occurred";
-      setErrorDetails(JSON.stringify(error, null, 2));
+      setErrorMessage(errorMsg);
       
       toast({
         title: "Error",
@@ -111,9 +111,9 @@ const Login = () => {
             </div>
           </form>
           
-          {errorDetails && errorDetails.includes("AuthUnknownError") && (
+          {errorMessage && (
             <div className="mt-4 bg-red-50 p-3 rounded text-xs text-red-800">
-              Authentication error. Please try again.
+              {errorMessage}
             </div>
           )}
         </CardContent>

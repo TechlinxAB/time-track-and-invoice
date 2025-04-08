@@ -46,7 +46,7 @@ export interface Client {
   notes?: string;
   // Add the missing fields for Swedish invoice requirements
   invoiceAddress?: string;
-  paymentTerms?: string;  // Changed to string from number
+  paymentTerms?: string;  // Payment terms as string
   deliveryTerms?: string;
 }
 
@@ -144,11 +144,5 @@ export interface ConnectionDetails {
   pageProtocol: string;
   connectionTimeout: number;
   apiKeyConfigured: boolean;
-  directUrl?: string;
-  usingProxy?: boolean;
-  reverseProxy?: boolean;
-  reverseProxyPath?: string;
-  nginx?: {
-    path?: string;
-  };
 }
+
