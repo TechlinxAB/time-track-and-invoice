@@ -146,15 +146,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       
       const displayName = email.split('@')[0] || 'User';
       
+      // Check if this is the first user in the system
       const firstUser = await isFirstUser();
       console.log('Is first user?', firstUser);
+      
+      // Get any admin setup metadata
+      const isAdminSetup = userData?.user?.user_metadata?.is_admin_setup === true;
+      const shouldBeAdmin = firstUser || isAdminSetup;
       
       const defaultProfile = {
         id: userId,
         email,
         full_name: displayName,
         avatar_url: '',
-        role: firstUser ? 'admin' : 'user',
+        role: shouldBeAdmin ? 'admin' : 'user', // Set role based on first user or explicit admin setup
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -181,11 +186,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       
       console.log('Created default profile for new user:', data);
       
-      if (firstUser) {
+      if (shouldBeAdmin) {
         console.log('First user created as admin!');
         toast({
           title: "Welcome, Administrator!",
-          description: "As the first user, you have been granted administrator privileges.",
+          description: "You have been granted administrator privileges.",
           variant: "default"
         });
       }

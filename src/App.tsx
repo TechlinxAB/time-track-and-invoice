@@ -1,5 +1,5 @@
-
 import { Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import TimeTracking from "./pages/TimeTracking";
@@ -10,6 +10,7 @@ import Settings from "./pages/Settings";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import FirstTimeSetup from "./pages/FirstTimeSetup";
 import Index from "./pages/Index";
 import { AppProvider } from "./contexts/AppContext";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -21,6 +22,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -86,14 +88,84 @@ const PermissionRoute = ({
   return <>{children}</>;
 };
 
+// First time setup detection component
+const FirstTimeCheck = ({ children }: { children: React.ReactNode }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFirstTime, setIsFirstTime] = useState(false);
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    const checkIfFirstTime = async () => {
+      try {
+        // Don't check if user is already logged in
+        if (user) {
+          setIsFirstTime(false);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Query the get_user_count function
+        const { data, error } = await supabase.rpc('get_user_count');
+        
+        if (error) {
+          console.error("Error checking if first time:", error);
+          setIsFirstTime(false); // Default to false on error
+        } else {
+          // If there are no users, it's first time
+          setIsFirstTime(data === 0);
+        }
+      } catch (err) {
+        console.error("Error in first time check:", err);
+        setIsFirstTime(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkIfFirstTime();
+  }, [user]);
+  
+  // While checking, show a loading indicator
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-success mb-2">TimeTracker</h1>
+          <p className="text-muted-foreground mb-4">Checking system status...</p>
+          <div className="w-8 h-8 border-4 border-success/30 border-t-success rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+  
+  // If it's the first time, redirect to setup
+  if (isFirstTime) {
+    return <Navigate to="/setup" replace />;
+  }
+  
+  // Otherwise, render children
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <AuthProvider>
       <UserProvider>
         <AppProvider>
           <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Index />} />
+            <Route path="/setup" element={<FirstTimeSetup />} />
+            
+            <Route path="/login" element={
+              <FirstTimeCheck>
+                <Login />
+              </FirstTimeCheck>
+            } />
+            
+            <Route path="/" element={
+              <FirstTimeCheck>
+                <Index />
+              </FirstTimeCheck>
+            } />
             
             {/* Change the layout to be at the root level with nested routes */}
             <Route element={

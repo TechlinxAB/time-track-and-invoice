@@ -14,6 +14,23 @@ BEGIN
     END IF;
   END IF;
   
+  -- Also check if the user has the is_admin_setup flag from the setup page
+  -- This handles race conditions if multiple users register simultaneously
+  DECLARE
+    is_admin_setup BOOLEAN;
+  BEGIN
+    SELECT raw_user_meta_data->>'is_admin_setup' = 'true' INTO is_admin_setup
+    FROM auth.users 
+    WHERE id = NEW.id;
+    
+    IF is_admin_setup THEN
+      NEW.role = 'admin';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    -- If error reading metadata, fall back to previous logic
+    NULL;
+  END;
+  
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
