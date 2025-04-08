@@ -104,17 +104,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Attempting to sign up user:', email);
       
-      // THIS IS CRITICAL: Set multiple flags to ensure email verification is bypassed
+      // RADICALLY SIMPLIFIED: Skip ALL email verification and confirmation
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
-          // Skip email verification both in metadata and with emailRedirectTo null
+          // Maximum number of flags to bypass email verification
           data: {
             email_confirmed: true,
+            is_verified: true,
             autoConfirm: true
           },
-          // Deliberately NOT setting an emailRedirectTo to help prevent confirmation emails
+          // CRITICAL: Set this to null to disable email verification
           emailRedirectTo: null
         }
       });
@@ -136,26 +137,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       console.log('Sign up successful');
       
-      // If confirmation is still pending, try to force confirm the user
-      if (data.user?.identities?.[0]?.identity_data?.email_confirmed !== true) {
-        console.log('Attempting to auto-verify email...');
-        try {
-          // Auto sign-in the user right after signup to bypass email verification
-          const { error: signInError } = await supabase.auth.signInWithPassword({ 
-            email, 
-            password 
-          });
-          
-          if (signInError) {
-            console.warn('Auto sign-in after signup failed:', signInError);
-            // Continue anyway since the user was created
-          } else {
-            console.log('Auto sign-in after signup successful');
-          }
-        } catch (e) {
-          console.warn('Error during auto sign-in after signup:', e);
-          // Continue anyway
+      // Auto sign-in the user right after signup to bypass email verification
+      try {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ 
+          email, 
+          password 
+        });
+        
+        if (signInError) {
+          console.warn('Auto sign-in after signup failed:', signInError);
+        } else {
+          console.log('Auto sign-in after signup successful');
         }
+      } catch (e) {
+        console.warn('Error during auto sign-in after signup:', e);
       }
       
       return { success: true, error: null };

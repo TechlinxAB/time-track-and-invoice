@@ -26,85 +26,43 @@ const Login = () => {
       try {
         console.log("Checking for first time setup...");
         
-        // Check the profiles table directly first as it's more reliable
+        // SIMPLIFIED: Always check profiles table directly first
         try {
-          const { count, error: profileError } = await supabase
+          // Try a simplified approach - just list profiles
+          const { data: profileData, error: listError } = await supabase
             .from('profiles')
-            .select('*', { count: 'exact', head: true });
-          
-          if (!profileError) {
-            if (count === 0) {
-              console.log("First time setup needed - no profiles found");
+            .select('id')
+            .limit(1);
+            
+          if (!listError) {
+            if (!profileData || profileData.length === 0) {
+              console.log("No profiles found - redirecting to setup");
               setIsFirstTime(true);
               navigate("/setup");
               return;
             }
             
-            // If we have profiles, no need to check the RPC
-            console.log("Profiles found, no first-time setup needed");
-            setIsFirstTime(false);
-            setIsFirstTimeCheck(false);
-            return;
-          } else {
-            console.warn("Error checking profiles table:", profileError);
-            // If error checking profiles, try using regular queries
-            try {
-              const { data: profileData, error: listError } = await supabase
-                .from('profiles')
-                .select('id')
-                .limit(1);
-                
-              if (!listError) {
-                if (!profileData || profileData.length === 0) {
-                  console.log("First time setup needed - no profiles found via list");
-                  setIsFirstTime(true);
-                  navigate("/setup");
-                  return;
-                }
-                
-                // If we have at least one profile, no need for first-time setup
-                console.log("At least one profile found, no first-time setup needed");
-                setIsFirstTime(false);
-                setIsFirstTimeCheck(false);
-                return;
-              }
-            } catch (err) {
-              console.warn("Error listing profiles:", err);
-            }
-          }
-        } catch (err) {
-          console.warn("Error checking profiles:", err);
-        }
-        
-        // Fall back to RPC if needed - this is now a last resort
-        try {
-          const { data, error } = await supabase.rpc('get_user_count');
-          
-          if (!error && data === 0) {
-            console.log("First time setup needed - no users found via RPC");
-            setIsFirstTime(true);
-            navigate("/setup");
-            return;
-          }
-          
-          if (!error) {
-            console.log(`User count: ${data}, no first-time setup needed`);
+            // If we have at least one profile, no need for first-time setup
+            console.log("At least one profile found, no first-time setup needed");
             setIsFirstTime(false);
             setIsFirstTimeCheck(false);
             return;
           }
         } catch (err) {
-          console.warn("Error using get_user_count RPC:", err);
+          console.warn("Error listing profiles:", err);
         }
         
-        // If we get here with no conclusive result, we need to make a decision
-        // Default to NOT first time for safety - better to show login than lose access
-        console.log("Inconclusive checks - defaulting to not first time setup");
-        setIsFirstTime(false);
+        // If all checks have failed, default to showing setup
+        // This ensures users can access setup in case of permission errors
+        console.log("Assuming first time setup is needed due to errors");
+        setIsFirstTime(true);
+        navigate("/setup");
         
       } catch (e) {
         console.error("Error checking first time setup:", e);
-        setIsFirstTime(false);
+        // Default to setup on errors for safety
+        setIsFirstTime(true);
+        navigate("/setup");
       } finally {
         setIsFirstTimeCheck(false);
       }
@@ -144,7 +102,12 @@ const Login = () => {
     try {
       console.log("Starting authentication process...");
       
-      await signIn(email, password);
+      // Try direct sign-in
+      const { success, error } = await signIn(email, password);
+      
+      if (!success) {
+        throw error || new Error("Authentication failed");
+      }
       
       console.log("Authentication complete");
     } catch (error) {

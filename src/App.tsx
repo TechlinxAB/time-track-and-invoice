@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Layout from "./components/Layout";
@@ -88,65 +89,40 @@ const PermissionRoute = ({
   return <>{children}</>;
 };
 
-// First time setup detection component
+// Simplified first-time detection 
 const FirstTimeCheck = ({ children }: { children: React.ReactNode }) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFirstTime, setIsFirstTime] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
   const { user } = useAuth();
   
   useEffect(() => {
-    const checkIfFirstTime = async () => {
+    // Skip check if user is already logged in
+    if (user) {
+      setIsChecking(false);
+      return;
+    }
+    
+    // Just do a quick check if there are any profiles
+    const checkProfiles = async () => {
       try {
-        // Don't check if user is already logged in
-        if (user) {
-          setIsFirstTime(false);
-          setIsLoading(false);
-          return;
-        }
+        const { data, error } = await supabase.from('profiles').select('id').limit(1);
         
-        // First try using the RPC function
-        try {
-          // Query the get_user_count function
-          const { data, error } = await supabase.rpc('get_user_count');
-          
-          if (error) {
-            console.warn("Error using get_user_count RPC:", error);
-            throw error; // Skip to the fallback method
-          }
-          
-          // If there are no users, it's first time
-          setIsFirstTime(data === 0);
-          setIsLoading(false);
+        // If no profiles found, redirect to setup immediately
+        if (!error && (!data || data.length === 0)) {
+          window.location.href = '/setup';
           return;
-        } catch (err) {
-          console.warn("Falling back to profile count check:", err);
-        }
-        
-        // Fallback to checking profiles table directly
-        const { count, error: profileError } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
-          
-        if (profileError) {
-          console.error("Error counting profiles:", profileError);
-          setIsFirstTime(false); // Default to false on error
-        } else {
-          // If there are no profiles, it's first time
-          setIsFirstTime(count === 0);
         }
       } catch (err) {
-        console.error("Error in first time check:", err);
-        setIsFirstTime(false);
+        console.warn("Error checking profiles:", err);
+        // On error, continue to show the child content
       } finally {
-        setIsLoading(false);
+        setIsChecking(false);
       }
     };
     
-    checkIfFirstTime();
+    checkProfiles();
   }, [user]);
   
-  // While checking, show a loading indicator
-  if (isLoading) {
+  if (isChecking) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
@@ -158,12 +134,6 @@ const FirstTimeCheck = ({ children }: { children: React.ReactNode }) => {
     );
   }
   
-  // If it's the first time, redirect to setup
-  if (isFirstTime) {
-    return <Navigate to="/setup" replace />;
-  }
-  
-  // Otherwise, render children
   return <>{children}</>;
 };
 
