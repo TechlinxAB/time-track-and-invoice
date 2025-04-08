@@ -127,3 +127,28 @@ export interface DateRange {
   from: Date | undefined;
   to?: Date | undefined;  // Made optional to match react-day-picker's interface
 }
+
+// Add the missing return type for testSupabaseConnection
+export interface ConnectionTestResult {
+  success: boolean;
+  error?: string;
+  timeout?: boolean;
+  missingApiKey?: boolean;
+}
+
+// Add detailed connection details interface
+export interface ConnectionDetails {
+  url: string;
+  environment: string;
+  protocol: string;
+  pageProtocol: string;
+  connectionTimeout: number;
+  apiKeyConfigured: boolean;
+  directUrl?: string;
+  usingProxy?: boolean;
+  reverseProxy?: boolean;
+  reverseProxyPath?: string;
+  nginx?: {
+    path?: string;
+  };
+}
