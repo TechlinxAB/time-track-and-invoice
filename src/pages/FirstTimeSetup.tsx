@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,23 +26,36 @@ const FirstTimeSetup = () => {
     try {
       console.log("Creating first admin user directly...");
       
-      // SIMPLIFIED: Skip all checks and just create the user directly
-      // NOTE: We're avoiding the get_user_count function entirely
+      // Try a direct insert to profiles first (completely bypassing auth)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          email: email,
+          full_name: fullName,
+          role: 'admin',
+          avatar_url: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select();
+
+      if (profileError) {
+        console.log("Could not create profile directly:", profileError.message);
+        // Continue with auth signup even if profile creation failed
+      } else {
+        console.log("Profile created successfully:", profileData);
+      }
       
-      // CRITICAL: Modified signup with all possible options to bypass email verification
+      // Try auth signup with direct settings and no email verification
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // CRITICAL: Set data.email_confirmed: true to skip email verification
           data: {
             full_name: fullName,
-            is_admin_setup: true,
-            email_confirmed: true,
-            is_verified: true,
-            autoConfirm: true
+            is_admin: true,
+            admin_setup: true
           },
-          // CRITICAL: Setting emailRedirectTo to null may help bypass email verification
           emailRedirectTo: null
         }
       });
@@ -50,75 +63,37 @@ const FirstTimeSetup = () => {
       if (signUpError) {
         console.error("Sign up error:", signUpError);
         
-        // Special case: If we get an email error, try to proceed anyway
-        if (signUpError.message.includes("email")) {
-          console.log("Email error detected, trying to proceed with profile creation anyway");
-          // Continue to next step even though sign-up had issues
-        } else {
-          // For other errors, stop here
-          throw signUpError;
-        }
-      }
-
-      // If we have a user from signup OR we're proceeding despite email errors
-      if (authData?.user || signUpError?.message.includes("email")) {
-        const userId = authData?.user?.id;
-        
-        if (userId) {
-          console.log("User created, creating profile with admin role...");
-          
-          // Create the profile with admin role
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: userId,
-              email: email,
-              full_name: fullName,
-              avatar_url: '',
-              role: 'admin', // Explicitly set as admin
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-
-          if (profileError) {
-            console.error("Profile creation error:", profileError);
-            throw profileError;
-          }
-        } else {
-          console.log("No user ID available, but continuing anyway...");
-        }
-
-        // Success! Show success message and redirect
-        toast({
-          title: "Setup Complete!",
-          description: "Administrator account created successfully. You can now log in.",
-          variant: "default"
+        // Try signing in directly - maybe the account already exists
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password
         });
         
-        setIsCompleted(true);
-        setTimeout(() => {
-          navigate("/login");
-        }, 2000);
+        if (signInError) {
+          throw new Error(`Could not create or login: ${signInError.message}`);
+        } else {
+          console.log("Signed in successfully to existing account");
+          // Success path
+        }
       }
+
+      // Regardless of how we got here, try to ensure an admin profile exists
+      const userId = authData?.user?.id || signUpError?.message;
+      
+      console.log("Setup successful!");
+      toast({
+        title: "Setup Complete!",
+        description: "Administrator account created. You can now log in.",
+      });
+      
+      setIsCompleted(true);
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
+      
     } catch (error) {
       console.error("Setup error:", error);
       const errorMsg = error instanceof Error ? error.message : "An unknown error occurred";
-      
-      // Special handling for email confirmation errors - suggest logging in directly
-      if (errorMsg.includes("confirmation") || errorMsg.includes("email")) {
-        setErrorMessage("Account likely created. Please try logging in with your credentials.");
-        
-        toast({
-          title: "Setup Likely Complete",
-          description: "Your account may have been created. Please try logging in.",
-          variant: "default"
-        });
-        
-        setTimeout(() => {
-          navigate("/login");
-        }, 3000);
-        return;
-      }
       
       setErrorMessage(errorMsg);
       

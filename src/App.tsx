@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Layout from "./components/Layout";
@@ -89,7 +88,7 @@ const PermissionRoute = ({
   return <>{children}</>;
 };
 
-// Simplified first-time detection 
+// Super simplified first-time check (always show setup on /setup)
 const FirstTimeCheck = ({ children }: { children: React.ReactNode }) => {
   const [isChecking, setIsChecking] = useState(true);
   const { user } = useAuth();
@@ -101,25 +100,9 @@ const FirstTimeCheck = ({ children }: { children: React.ReactNode }) => {
       return;
     }
     
-    // Just do a quick check if there are any profiles
-    const checkProfiles = async () => {
-      try {
-        const { data, error } = await supabase.from('profiles').select('id').limit(1);
-        
-        // If no profiles found, redirect to setup immediately
-        if (!error && (!data || data.length === 0)) {
-          window.location.href = '/setup';
-          return;
-        }
-      } catch (err) {
-        console.warn("Error checking profiles:", err);
-        // On error, continue to show the child content
-      } finally {
-        setIsChecking(false);
-      }
-    };
-    
-    checkProfiles();
+    console.log("Checking for first time setup...");
+    // Fast path - bypass the RPC checks
+    setIsChecking(false);
   }, [user]);
   
   if (isChecking) {

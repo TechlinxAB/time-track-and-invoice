@@ -1,11 +1,10 @@
 
--- Function to safely get the count of users in auth.users table
--- This function will COUNT USERS with NO PARAMETERS to match what the code is calling
+-- Function to always return 0 to bypass problematic auth schema queries
+-- This will effectively treat every setup as first-time setup
 CREATE OR REPLACE FUNCTION public.get_user_count()
 RETURNS INTEGER AS $$
 BEGIN
-  -- Try to return 0 - since we're having issues with the auth schema
-  -- This effectively treats every setup as first-time setup
+  -- Always return 0 - completely skip the auth schema
   RETURN 0;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

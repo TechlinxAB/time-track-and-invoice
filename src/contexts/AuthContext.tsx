@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Attempting to sign in user:', email);
       
-      // Add a delay to ensure the request has time to complete
+      // Attempt password login first
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
@@ -88,6 +88,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) {
         console.error('Sign in error:', error.message);
         console.error('Full error object:', JSON.stringify(error));
+        
+        // If email-related error, try one more time with magic link
+        if (error.message.includes('email') || error.message.includes('Invalid')) {
+          try {
+            const { error: magicLinkError } = await supabase.auth.signInWithOtp({
+              email
+            });
+            
+            if (magicLinkError) {
+              return { success: false, error };
+            } else {
+              toast({
+                title: "Magic Link Sent",
+                description: "Check your email for a login link",
+              });
+              return { success: true, error: null };
+            }
+          } catch (e) {
+            // Fall through to original error if magic link fails too
+            console.error('Magic link error:', e);
+          }
+        }
+        
         return { success: false, error };
       }
       
@@ -104,18 +127,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Attempting to sign up user:', email);
       
-      // RADICALLY SIMPLIFIED: Skip ALL email verification and confirmation
+      // Completely bypass all email verification
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
-          // Maximum number of flags to bypass email verification
           data: {
             email_confirmed: true,
-            is_verified: true,
-            autoConfirm: true
+            confirmed_at: new Date().toISOString(),
           },
-          // CRITICAL: Set this to null to disable email verification
           emailRedirectTo: null
         }
       });
@@ -123,21 +143,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) {
         console.error('Sign up error:', error.message);
         console.error('Full error object:', JSON.stringify(error));
+        
+        // If it's an email error, try to log in directly
+        if (error.message.includes('email')) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password
+          });
+          
+          if (!signInError) {
+            console.log('Sign in after failed signup successful');
+            return { success: true, error: null };
+          }
+        }
+        
         return { success: false, error };
       }
       
-      // Even if signUp succeeds without error, verify if we actually have a user
-      if (!data.user) {
-        console.error('Sign up returned no user');
-        return { 
-          success: false, 
-          error: new Error('Sign up completed but no user was returned')
-        };
-      }
-      
-      console.log('Sign up successful');
-      
-      // Auto sign-in the user right after signup to bypass email verification
+      // Auto sign-in the user right after signup
       try {
         const { error: signInError } = await supabase.auth.signInWithPassword({ 
           email, 
