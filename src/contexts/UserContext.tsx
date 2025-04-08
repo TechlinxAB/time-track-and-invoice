@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -192,7 +193,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       case 'manage_clients':
         return ['admin', 'manager'].includes(role);
       case 'create_time_entries':
-        return ['admin', 'manager', 'user'].includes(role);
+        return true; // All roles can create time entries
       case 'view_reports':
         return ['admin', 'manager'].includes(role);
       case 'manage_invoices':

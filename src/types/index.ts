@@ -46,7 +46,7 @@ export interface Client {
   notes?: string;
   // Add the missing fields for Swedish invoice requirements
   invoiceAddress?: string;
-  paymentTerms?: string;
+  paymentTerms?: string;  // Changed to string from number
   deliveryTerms?: string;
 }
 
@@ -125,5 +125,5 @@ export interface SelectOption {
 // Modified DateRange interface that's compatible with react-day-picker
 export interface DateRange {
   from: Date | undefined;
-  to: Date | undefined;
+  to?: Date | undefined;  // Made optional to match react-day-picker's interface
 }

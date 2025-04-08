@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { supabase, saveApiKey } from "@/lib/supabase";
+import { supabase, saveApiKey, testSupabaseConnection } from "@/lib/supabase";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const Login = () => {
   const { user, signIn, signUp } = useAuth();
@@ -16,43 +18,16 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [apiKey, setApiKey] = useState(localStorage.getItem('supabase_anon_key') || "");
-  const [connectionInfo, setConnectionInfo] = useState<{
-    url: string; 
-    protocol: string;
-    pageProtocol: string;
-    usingProxy: boolean;
-    reverseProxy: boolean;
-    reverseProxyPath?: string | null;
-    apiKeyConfigured: boolean;
-  }>(() => {
-    const supabaseConfig = supabase.constructor as any;
-    const url = supabaseConfig?.supabaseUrl || "unknown";
-    const protocol = url.split(':')[0];
-    const usingProxy = url.includes(window.location.hostname);
-    const reverseProxy = localStorage.getItem('use_reverse_proxy') !== 'false';
-    const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
-    const apiKeyConfigured = !!localStorage.getItem('supabase_anon_key');
-    
-    return { 
-      url, 
-      protocol,
-      pageProtocol: window.location.protocol,
-      usingProxy,
-      reverseProxy,
-      reverseProxyPath,
-      apiKeyConfigured
-    };
-  });
+  const [connectionStatus, setConnectionStatus] = useState<"untested" | "success" | "error">("untested");
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   useEffect(() => {
-    // Force reverse proxy to true by default if not explicitly set
-    if (localStorage.getItem('use_reverse_proxy') === null) {
-      localStorage.setItem('use_reverse_proxy', 'true');
-      window.location.reload();
+    // Check API key on load
+    if (!apiKey) {
+      setConnectionStatus("error");
     }
-  }, []);
+  }, [apiKey]);
 
   // If user is already logged in, redirect to the dashboard
   if (user) {
@@ -64,16 +39,18 @@ const Login = () => {
     setIsLoading(true);
     setErrorDetails(null);
 
+    if (!apiKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter your Supabase API key below",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       console.log("Starting authentication process...");
-      console.log("Using Supabase URL:", connectionInfo.url);
-      console.log("Using Proxy:", connectionInfo.usingProxy ? "Yes" : "No");
-      console.log("Using Reverse Proxy:", connectionInfo.reverseProxy ? "Yes" : "No");
-      console.log("API Key Configured:", connectionInfo.apiKeyConfigured ? "Yes" : "No");
-      
-      if (connectionInfo.reverseProxy) {
-        console.log("Reverse Proxy Path:", connectionInfo.reverseProxyPath);
-      }
       
       let result;
 
@@ -120,37 +97,7 @@ const Login = () => {
     }
   };
   
-  const handleReverseProxyToggle = () => {
-    const current = localStorage.getItem('use_reverse_proxy') !== 'false';
-    localStorage.setItem('use_reverse_proxy', (!current).toString());
-    
-    toast({
-      title: "Connection Settings Changed",
-      description: "Reloading application with new settings...",
-    });
-    
-    setTimeout(() => window.location.reload(), 1000);
-  };
-  
-  const handleConfigureReverseProxy = () => {
-    const path = prompt(
-      "Enter your reverse proxy path (e.g. /supabase):", 
-      localStorage.getItem('reverse_proxy_path') || "/supabase"
-    );
-    
-    if (path) {
-      localStorage.setItem('reverse_proxy_path', path);
-      
-      toast({
-        title: "Reverse Proxy Path Updated",
-        description: `Path set to: ${path}. Reloading...`,
-      });
-      
-      setTimeout(() => window.location.reload(), 1000);
-    }
-  };
-  
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     if (!apiKey.trim()) {
       toast({
         title: "Error",
@@ -160,11 +107,58 @@ const Login = () => {
       return;
     }
     
+    setIsTestingConnection(true);
+    
+    // Test connection before saving
     saveApiKey(apiKey);
+    
+    // Give a little time for the page to reload
     toast({
       title: "API Key Saved",
-      description: "Supabase API key has been saved. Reloading...",
+      description: "Reloading with new API key...",
     });
+  };
+
+  const testConnection = async () => {
+    setIsTestingConnection(true);
+    
+    try {
+      const result = await testSupabaseConnection();
+      
+      if (result.success) {
+        setConnectionStatus("success");
+        toast({
+          title: "Connection Successful",
+          description: "Successfully connected to Supabase",
+        });
+      } else {
+        setConnectionStatus("error");
+        if (result.missingApiKey) {
+          setErrorDetails("Invalid or missing API key. Please check your API key and try again.");
+        } else if (result.timeout) {
+          setErrorDetails(`Connection timed out. The Supabase server might be unreachable.`);
+        } else {
+          setErrorDetails(`Failed to connect: ${result.error}`);
+        }
+        
+        toast({
+          title: "Connection Failed",
+          description: result.missingApiKey ? "Invalid API key" : "Could not connect to Supabase",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      setConnectionStatus("error");
+      setErrorDetails(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+      
+      toast({
+        title: "Connection Test Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
   };
 
   return (
@@ -179,6 +173,55 @@ const Login = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* API Key Section - Always visible */}
+          <div className="mb-6 border p-4 rounded-md bg-muted/30">
+            <h3 className="text-sm font-medium mb-2">Supabase API Key</h3>
+            <div className="space-y-2">
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your Supabase anon key"
+                className="text-xs"
+              />
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={handleSaveApiKey}
+                  size="sm"
+                  className="text-xs flex-1"
+                  disabled={isTestingConnection || !apiKey.trim()}
+                >
+                  {isTestingConnection ? "Saving..." : "Save & Test API Key"}
+                </Button>
+                <Button
+                  onClick={testConnection}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  disabled={isTestingConnection || !apiKey.trim()}
+                >
+                  Test
+                </Button>
+              </div>
+              {connectionStatus === "success" && (
+                <Alert className="bg-green-50 border-green-200">
+                  <AlertDescription className="text-xs text-green-800">
+                    Successfully connected to Supabase
+                  </AlertDescription>
+                </Alert>
+              )}
+              {connectionStatus === "error" && (
+                <Alert variant="destructive" className="bg-red-50">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    {errorDetails || "Could not connect to Supabase. Please check your API key."}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </div>
+          
+          {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -204,82 +247,20 @@ const Login = () => {
             </div>
           </form>
           
-          {errorDetails && (
-            <div className="mt-4 p-2 text-xs bg-red-50 border border-red-200 rounded overflow-auto max-h-28">
-              <p className="font-semibold text-destructive">Error Details:</p>
-              <pre className="whitespace-pre-wrap">{errorDetails}</pre>
-            </div>
-          )}
-          
-          <div className="mt-4">
-            <Button 
-              variant="link" 
-              className="px-0 text-xs text-muted-foreground"
-              onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-            >
-              {showAdvancedOptions ? "Hide Connection Settings" : "Show Connection Settings"}
-            </Button>
-          </div>
-          
-          {showAdvancedOptions && (
-            <div className="mt-2 text-xs bg-gray-100 p-3 rounded text-left">
-              <p><strong>API URL:</strong> {connectionInfo.url}</p>
-              <p><strong>API Protocol:</strong> {connectionInfo.protocol}:</p>
-              <p><strong>Page Protocol:</strong> {connectionInfo.pageProtocol}</p>
-              <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
-              <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
-              {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
-              <p><strong>API Key Configured:</strong> {connectionInfo.apiKeyConfigured ? "Yes" : "No"}</p>
-              
-              <div className="mt-3 space-y-2">
-                <Label htmlFor="apiKey" className="font-semibold">Supabase API Key</Label>
-                <Input
-                  id="apiKey"
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Enter your Supabase anon key"
-                  className="text-xs h-8"
-                />
-                <Button 
-                  variant="default" 
-                  size="sm"
-                  className="text-xs w-full mt-1"
-                  onClick={handleSaveApiKey}
-                >
-                  Save API Key
-                </Button>
-              </div>
-              
-              <div className="flex flex-col space-y-2 mt-3">                
-                <Button 
-                  variant={connectionInfo.reverseProxy ? "default" : "outline"} 
-                  size="sm"
-                  className="text-xs"
-                  onClick={handleReverseProxyToggle}
-                >
-                  {connectionInfo.reverseProxy ? "Disable Reverse Proxy" : "Enable Reverse Proxy"}
-                </Button>
-                
-                {connectionInfo.reverseProxy && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="text-xs"
-                    onClick={handleConfigureReverseProxy}
-                  >
-                    Configure Proxy Path
-                  </Button>
-                )}
-              </div>
-            </div>
+          {errorDetails && errorDetails.includes("AuthUnknownError") && (
+            <Alert variant="destructive" className="mt-4 bg-red-50">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Authentication error: Cannot connect to Supabase. Please check your API key and ensure it's correct.
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <Button
             className="w-full bg-success hover:bg-success/90 text-success-foreground"
             onClick={handleSubmit}
-            disabled={isLoading}
+            disabled={isLoading || !apiKey.trim() || connectionStatus === "error"}
           >
             {isLoading
               ? "Processing..."
