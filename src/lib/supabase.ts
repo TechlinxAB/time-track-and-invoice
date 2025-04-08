@@ -217,7 +217,8 @@ export const fetchClients = async (): Promise<Client[]> => {
   }));
 };
 
-export const createClient = async (client: Omit<Client, "id">): Promise<Client | null> => {
+// Renamed from createClient to createNewClient to avoid naming conflict
+export const createNewClient = async (client: Omit<Client, "id">): Promise<Client | null> => {
   const { data, error } = await supabase
     .from('clients')
     .insert({
