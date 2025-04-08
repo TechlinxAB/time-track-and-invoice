@@ -30,7 +30,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
     postalCode: "",
     country: "Sweden", // Default to Sweden
     invoiceAddress: "",
-    paymentTerms: 30, // Default to 30 days
+    paymentTerms: "30", // Store as string to match the Client type
     deliveryTerms: "",
   });
 
@@ -48,7 +48,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
         postalCode: client.postalCode || "",
         country: client.country || "Sweden",
         invoiceAddress: client.invoiceAddress || "",
-        paymentTerms: client.paymentTerms || 30,
+        paymentTerms: client.paymentTerms || "30",
         deliveryTerms: client.deliveryTerms || "",
       });
     } else {
@@ -64,7 +64,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
         postalCode: "",
         country: "Sweden",
         invoiceAddress: "",
-        paymentTerms: 30,
+        paymentTerms: "30",
         deliveryTerms: "",
       });
     }
@@ -223,11 +223,8 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
               id="paymentTerms"
               name="paymentTerms"
               type="number"
-              value={formData.paymentTerms.toString()}
-              onChange={(e) => setFormData(prev => ({ 
-                ...prev, 
-                paymentTerms: parseInt(e.target.value) || 30 
-              }))}
+              value={formData.paymentTerms}
+              onChange={handleChange}
             />
           </div>
           
