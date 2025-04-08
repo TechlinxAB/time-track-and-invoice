@@ -122,7 +122,7 @@ export interface SelectOption {
   label: string;
 }
 
-// Add DateRange interface for app context and invoicing
+// Fixed DateRange interface for app context and invoicing
 export interface DateRange {
   from: Date | undefined;
   to: Date | undefined;

@@ -206,9 +206,9 @@ const Index = () => {
               {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
               <p><strong>Connection Timeout:</strong> {connectionInfo.connectionTimeout/1000}s</p>
               <p><strong>Direct Supabase URL:</strong> {connectionInfo.directUrl} (Standard HTTP/HTTPS port)</p>
-              {connectionInfo.nginxPath && (
+              {connectionInfo.nginx && connectionInfo.nginx.path && (
                 <p className="mt-2 text-orange-700">
-                  <strong>Nginx Error Log:</strong> {connectionInfo.nginxPath}
+                  <strong>Nginx Error Log:</strong> {connectionInfo.nginx.path}
                 </p>
               )}
             </div>

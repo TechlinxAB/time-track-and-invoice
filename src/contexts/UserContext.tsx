@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { UserProfile, UserRole } from "@/types";
 import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface UserContextType {
   user: UserProfile | null;
@@ -20,6 +22,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<UserProfile | null>(null);
   const [role, setRole] = useState<UserRole>("user");
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Function to derive display name from email
   const deriveDisplayNameFromEmail = (email: string): string => {
@@ -56,12 +59,14 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const loadProfile = async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
       console.log("Starting profile load...");
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
         console.error("Session error:", sessionError);
         toast.error("Failed to load session");
+        setLoadError("Session error: " + sessionError.message);
         setIsLoading(false);
         return;
       }
@@ -79,6 +84,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (userError || !userData.user) {
         console.error("User error:", userError);
         toast.error("Failed to load user data");
+        setLoadError("User data error: " + (userError?.message || "Unknown error"));
         setIsLoading(false);
         return;
       }
@@ -120,6 +126,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               console.error("Error creating profile:", createError);
               console.error("Create error details:", JSON.stringify(createError));
               toast.error("Failed to create user profile");
+              setLoadError("Failed to create profile: " + createError.message);
             } else {
               console.log("Default profile created successfully");
               setUser(defaultProfile as UserProfile);
@@ -127,6 +134,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               toast.success("Created default profile");
             }
           } else {
+            setLoadError("Failed to load profile: " + profileError.message);
             toast.error("Failed to load profile");
           }
         } else if (profileData) {
@@ -136,10 +144,12 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch (error) {
         console.error("Error in profile loading process:", error);
+        setLoadError("Unexpected error loading profile");
         toast.error("Unexpected error loading profile");
       }
     } catch (error) {
       console.error("Load profile error:", error);
+      setLoadError("An unexpected error occurred");
       toast.error("An unexpected error occurred");
     } finally {
       setIsLoading(false);
@@ -217,15 +227,56 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  if (isLoading) {
+  // Handle loading state with retry button
+  const LoadingScreen = () => {
+    const navigate = useNavigate();
+    
+    const handleRetry = () => {
+      loadProfile();
+    };
+    
+    const handleGoToLogin = async () => {
+      await supabase.auth.signOut();
+      navigate('/login');
+    };
+    
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-sm max-w-md w-full">
+          <h1 className="text-2xl font-bold text-success mb-2">TimeTracker</h1>
           <Spinner size="lg" />
           <p className="mt-4 text-muted-foreground">Loading profile...</p>
+          
+          {loadError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              <p className="font-semibold">Error loading profile:</p>
+              <p>{loadError}</p>
+            </div>
+          )}
+          
+          <div className="mt-6 flex flex-col gap-3">
+            <Button 
+              onClick={handleRetry} 
+              className="w-full"
+              variant="default"
+            >
+              Retry
+            </Button>
+            <Button 
+              onClick={handleGoToLogin} 
+              className="w-full"
+              variant="outline"
+            >
+              Back to Login
+            </Button>
+          </div>
         </div>
       </div>
     );
+  };
+
+  if (isLoading) {
+    return <LoadingScreen />;
   }
 
   return (

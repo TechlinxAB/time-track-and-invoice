@@ -12,9 +12,19 @@ const CONNECTION_TIMEOUT = 5000; // 5 seconds timeout
 const currentDomain = window.location.hostname;
 const currentProtocol = window.location.protocol;
 
-// Use direct URL as main option since that's working
+// Use reverse proxy or direct URL based on user preference
+const useReverseProxy = localStorage.getItem('use_reverse_proxy') !== 'false';
+const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
+
+// Determine the URL based on user preference
 let supabaseUrl = directSupabaseUrl;
-console.log('Using direct Supabase URL:', supabaseUrl);
+if (useReverseProxy) {
+  if (currentDomain !== 'localhost') {
+    // In production with reverse proxy enabled
+    supabaseUrl = `${currentProtocol}//${currentDomain}${reverseProxyPath}`;
+  }
+}
+console.log('Using Supabase URL:', supabaseUrl);
 
 // Check if we have an API key in the environment
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
