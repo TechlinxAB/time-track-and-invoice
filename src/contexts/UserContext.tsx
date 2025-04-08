@@ -98,9 +98,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      setUserProfile(data as UserProfile);
+      setUserProfile({
+        id: data.id,
+        email: data.email,
+        fullName: data.full_name,
+        avatarUrl: data.avatar_url || '',
+        role: data.role,
+        updated_at: data.updated_at
+      });
     } catch (error) {
       console.error('Error fetching profile:', error);
+    }
+  };
+
+  // Function to check if this is the first user in the system
+  const isFirstUser = async (): Promise<boolean> => {
+    try {
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+      
+      if (error) {
+        console.error('Error counting profiles:', error);
+        return false;
+      }
+      
+      return count === 0;
+    } catch (error) {
+      console.error('Error checking if first user:', error);
+      return false;
     }
   };
 
@@ -114,13 +140,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // Create a simple display name from email
       const displayName = email.split('@')[0] || 'User';
       
-      // Create default profile with 'user' role
+      // Check if this is the first user (will be upgraded to admin by the trigger)
+      const firstUser = await isFirstUser();
+      
+      // Create default profile with appropriate role
       const defaultProfile = {
         id: userId,
         email,
         full_name: displayName,
         avatar_url: '',
-        role: 'user',
+        role: 'user', // The database trigger will change this to 'admin' if it's the first user
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -147,6 +176,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
       
       console.log('Created default profile for new user:', data);
+      
+      // If this was the first user and they are now an admin, show a welcome message
+      if (firstUser && data.role === 'admin') {
+        console.log('First user created as admin!');
+      }
     } catch (error) {
       console.error('Error creating default profile:', error);
     }

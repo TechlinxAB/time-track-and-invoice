@@ -121,7 +121,7 @@ const Layout = () => {
                 </span>
               )}
               <div className="h-9 w-9 rounded-full bg-success/20 flex items-center justify-center text-success font-medium">
-                {profile?.displayName?.charAt(0).toUpperCase() || "U"}
+                {profile?.fullName?.charAt(0).toUpperCase() || "U"}
               </div>
             </div>
           </div>

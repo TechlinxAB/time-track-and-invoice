@@ -1,4 +1,3 @@
-
 import { ReactNode } from "react";
 
 export type UserRole = "admin" | "manager" | "user";
@@ -44,9 +43,8 @@ export interface Client {
   organizationNumber?: string;
   customerNumber?: string;
   notes?: string;
-  // Add the missing fields for Swedish invoice requirements
   invoiceAddress?: string;
-  paymentTerms?: string;  // Payment terms as string
+  paymentTerms?: string;
   deliveryTerms?: string;
 }
 
@@ -212,4 +210,13 @@ export interface DbTimeEntry {
   unit_price?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+// Add ClientsListProps to fix the error
+export interface ClientsListProps {
+  clients: Client[];
+  onEdit: (client: Client) => void;
+  onDelete: (id: string) => Promise<void>;
+  onAddNew: () => void;
+  readOnly?: boolean;
 }

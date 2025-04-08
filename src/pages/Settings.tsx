@@ -14,8 +14,11 @@ import {
   getFortnoxCredentials,
   FortnoxCredentials
 } from "@/services/fortnoxService";
+import UserManagement from "@/components/settings/UserManagement";
+import { usePermissions } from "@/hooks/use-permissions";
 
 const Settings = () => {
+  const { can } = usePermissions();
   const [companyInfo, setCompanyInfo] = useState({
     name: "My Company",
     email: "contact@mycompany.com",
@@ -353,27 +356,7 @@ const Settings = () => {
         </TabsContent>
 
         <TabsContent value="users">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>
-                Add and manage users with access to the system
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-3">
-                  User management will be implemented in the next version
-                </p>
-                <Button 
-                  onClick={() => toast.info("This feature will be available soon!")}
-                  variant="outline"
-                >
-                  Add User
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <UserManagement />
         </TabsContent>
       </Tabs>
     </div>

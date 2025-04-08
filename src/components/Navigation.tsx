@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/UserContext";
-import { hasPermission } from "@/lib/permissions";
+import { usePermissions } from "@/hooks/use-permissions";
 
 interface NavItemProps {
   to: string;
@@ -69,6 +69,7 @@ const navigationItems: NavigationItem[] = [
 const Navigation = memo(({ collapsed }: NavigationProps) => {
   const { pathname } = useLocation();
   const { user, userProfile } = useAuth();
+  const { can } = usePermissions();
   
   // Get initials for avatar fallback
   const getInitials = (name: string) => {
@@ -82,7 +83,7 @@ const Navigation = memo(({ collapsed }: NavigationProps) => {
 
   // Filter navigation items based on user permissions
   const filteredNavItems = navigationItems.filter(item => 
-    userProfile && hasPermission(userProfile.role, item.requiredPermission as any)
+    userProfile && can(item.requiredPermission as any)
   );
 
   return (
