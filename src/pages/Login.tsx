@@ -28,22 +28,9 @@ const Login = () => {
     try {
       console.log("Starting authentication process...");
       
-      const result = await signIn(email, password);
+      await signIn(email, password);
       
-      console.log("Auth result:", result);
-
-      if (!result.success) {
-        const errorMsg = result.error?.message || "Authentication failed";
-        console.error("Auth error:", errorMsg);
-        console.error("Full error details:", JSON.stringify(result.error, null, 2));
-        setErrorMessage(errorMsg);
-        
-        toast({
-          title: "Authentication Failed",
-          description: errorMsg,
-          variant: "destructive"
-        });
-      }
+      console.log("Authentication complete");
     } catch (error) {
       console.error("Uncaught auth error:", error);
       const errorMsg = error instanceof Error ? error.message : "An error occurred";
@@ -92,23 +79,22 @@ const Login = () => {
                 required
               />
             </div>
+            
+            {errorMessage && (
+              <div className="mt-4 bg-red-50 p-3 rounded text-xs text-red-800">
+                {errorMessage}
+              </div>
+            )}
+            
+            <Button
+              className="w-full bg-success hover:bg-success/90 text-success-foreground mt-4"
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Sign In"}
+            </Button>
           </form>
-          
-          {errorMessage && (
-            <div className="mt-4 bg-red-50 p-3 rounded text-xs text-red-800">
-              {errorMessage}
-            </div>
-          )}
         </CardContent>
-        <CardFooter>
-          <Button
-            className="w-full bg-success hover:bg-success/90 text-success-foreground"
-            onClick={handleSubmit}
-            disabled={isLoading}
-          >
-            {isLoading ? "Signing in..." : "Sign In"}
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   );

@@ -2,7 +2,7 @@ import { createContext, useState, useEffect, useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from '@/hooks/use-toast';
 
 export interface UserProfile {
   id: string;
@@ -137,7 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         full_name: displayName,
         avatar_url: '',
-        role: 'user',
+        role: firstUser ? 'admin' : 'user',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
