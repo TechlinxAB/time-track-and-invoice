@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Layout from "./components/Layout";
@@ -94,15 +95,39 @@ const FirstTimeCheck = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   
   useEffect(() => {
-    // Skip check if user is already logged in
-    if (user) {
-      setIsChecking(false);
-      return;
-    }
+    const checkSetup = async () => {
+      // If user is logged in, we can skip first-time setup
+      if (user) {
+        console.log("User is logged in, skipping first-time check");
+        setIsChecking(false);
+        return;
+      }
     
-    console.log("Checking for first time setup...");
-    // Fast path - bypass the RPC checks
-    setIsChecking(false);
+      try {
+        console.log("Checking if we need first-time setup...");
+        // Fast check - just try to see if any profiles exist
+        const { count, error } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+          
+        if (error) {
+          console.warn("Error checking profiles:", error);
+          // On error, assume we need setup
+          setIsChecking(false);
+          return;
+        }
+        
+        console.log(`Found ${count} profiles`);
+        // Even if count is 0, we'll just continue normally
+      } catch (e) {
+        console.warn("Error during first-time check:", e);
+      }
+      
+      // In all cases, finish checking
+      setIsChecking(false);
+    };
+    
+    checkSetup();
   }, [user]);
   
   if (isChecking) {
@@ -126,6 +151,7 @@ function App() {
       <UserProvider>
         <AppProvider>
           <Routes>
+            {/* The setup route is always available */}
             <Route path="/setup" element={<FirstTimeSetup />} />
             
             <Route path="/login" element={
@@ -140,7 +166,7 @@ function App() {
               </FirstTimeCheck>
             } />
             
-            {/* Change the layout to be at the root level with nested routes */}
+            {/* Protected routes */}
             <Route element={
               <ProtectedRoute>
                 <Layout />

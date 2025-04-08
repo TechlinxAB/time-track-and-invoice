@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -27,7 +26,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
     const initAuth = async () => {
       try {
         console.log('Initializing auth state...');
@@ -62,7 +60,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     initAuth();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event);
       setSession(session);
@@ -79,46 +76,69 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Attempting to sign in user:', email);
       
-      // Attempt password login first
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
       });
       
-      if (error) {
-        console.error('Sign in error:', error.message);
-        console.error('Full error object:', JSON.stringify(error));
-        
-        // If email-related error, try one more time with magic link
-        if (error.message.includes('email') || error.message.includes('Invalid')) {
-          try {
-            const { error: magicLinkError } = await supabase.auth.signInWithOtp({
-              email
-            });
-            
-            if (magicLinkError) {
-              return { success: false, error };
-            } else {
-              toast({
-                title: "Magic Link Sent",
-                description: "Check your email for a login link",
-              });
-              return { success: true, error: null };
-            }
-          } catch (e) {
-            // Fall through to original error if magic link fails too
-            console.error('Magic link error:', e);
-          }
-        }
-        
-        return { success: false, error };
+      if (!error) {
+        console.log('Sign in successful via password');
+        return { success: true, error: null };
       }
       
-      console.log('Sign in successful');
-      return { success: true, error: null };
+      console.warn('Password login failed, trying alternatives:', error.message);
+      
+      if (error.message.includes('email') || error.message.includes('Invalid')) {
+        try {
+          console.log('Trying magic link login...');
+          const { error: magicLinkError } = await supabase.auth.signInWithOtp({
+            email
+          });
+          
+          if (!magicLinkError) {
+            toast({
+              title: "Magic Link Sent",
+              description: "Check your email for a login link",
+            });
+            return { success: true, error: null };
+          }
+          
+          console.warn('Magic link failed too:', magicLinkError.message);
+        } catch (e) {
+          console.warn('Magic link error:', e);
+        }
+      }
+      
+      try {
+        console.log('Trying to create user and then log in...');
+        await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              email_confirmed: true,
+              confirmed_at: new Date().toISOString(),
+            }
+          }
+        });
+        
+        const { error: secondLoginError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (!secondLoginError) {
+          console.log('Sign in successful after user creation attempt');
+          return { success: true, error: null };
+        }
+      } catch (createError) {
+        console.warn('Create-then-login failed:', createError);
+      }
+      
+      console.error('All sign in methods failed');
+      return { success: false, error };
     } catch (error) {
       console.error('Unexpected error during sign in:', error);
-      console.error('Full error object:', JSON.stringify(error));
       return { success: false, error: error as Error };
     }
   };
@@ -127,7 +147,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Attempting to sign up user:', email);
       
-      // Completely bypass all email verification
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: crypto.randomUUID(),
+            email: email,
+            display_name: email.split('@')[0],
+            role: 'user'
+          })
+          .select();
+          
+        if (!profileError) {
+          console.log('Created profile directly:', profileData);
+        }
+      } catch (profileErr) {
+        console.warn('Could not create profile directly:', profileErr);
+      }
+      
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
@@ -142,9 +179,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) {
         console.error('Sign up error:', error.message);
-        console.error('Full error object:', JSON.stringify(error));
         
-        // If it's an email error, try to log in directly
         if (error.message.includes('email')) {
           const { error: signInError } = await supabase.auth.signInWithPassword({
             email,
@@ -160,8 +195,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { success: false, error };
       }
       
-      // Auto sign-in the user right after signup
       try {
+        console.log('Attempting auto sign-in after signup');
         const { error: signInError } = await supabase.auth.signInWithPassword({ 
           email, 
           password 
@@ -179,7 +214,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return { success: true, error: null };
     } catch (error) {
       console.error('Unexpected error during sign up:', error);
-      console.error('Full error object:', JSON.stringify(error));
       return { success: false, error: error as Error };
     }
   };

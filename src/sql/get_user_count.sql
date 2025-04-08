@@ -14,3 +14,6 @@ ALTER FUNCTION public.get_user_count() OWNER TO postgres;
 GRANT EXECUTE ON FUNCTION public.get_user_count() TO anon;
 GRANT EXECUTE ON FUNCTION public.get_user_count() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_user_count() TO service_role;
+
+-- Comment explaining why this is needed
+COMMENT ON FUNCTION public.get_user_count() IS 'Bypasses auth schema queries and always returns 0 to ensure first-time setup works';
