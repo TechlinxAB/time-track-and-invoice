@@ -10,9 +10,10 @@ type ClientFormProps = {
   client: Client | null;
   onSubmit: (formData: Omit<Client, "id">) => void;
   onCancel: () => void;
+  isSubmitting?: boolean;
 };
 
-export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
+export const ClientForm = ({ client, onSubmit, onCancel, isSubmitting = false }: ClientFormProps) => {
   const [formData, setFormData] = useState({
     name: "",
     company: "",
@@ -47,6 +48,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
         deliveryTerms: client.deliveryTerms || "",
       });
     } else {
+      // Reset form when adding a new client
       setFormData({
         name: "",
         company: "",
@@ -72,7 +74,9 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    if (!isSubmitting) {
+      onSubmit(formData);
+    }
   };
 
   return (
@@ -85,6 +89,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
           value={formData.name}
           onChange={handleChange}
           required
+          disabled={isSubmitting}
         />
       </div>
       
@@ -95,6 +100,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
           name="company"
           value={formData.company}
           onChange={handleChange}
+          disabled={isSubmitting}
         />
       </div>
 
@@ -107,6 +113,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
             value={formData.organizationNumber}
             onChange={handleChange}
             placeholder="XXXXXXXXXX"
+            disabled={isSubmitting}
           />
           <p className="text-xs text-muted-foreground">
             Required for Fortnox integration
@@ -121,6 +128,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
             value={formData.customerNumber}
             onChange={handleChange}
             placeholder="Optional, assigned by Fortnox"
+            disabled={isSubmitting}
           />
         </div>
       </div>
@@ -134,6 +142,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
             type="email"
             value={formData.email}
             onChange={handleChange}
+            disabled={isSubmitting}
           />
         </div>
         
@@ -144,6 +153,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
             name="phone"
             value={formData.phone}
             onChange={handleChange}
+            disabled={isSubmitting}
           />
         </div>
       </div>
@@ -155,6 +165,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
           name="address"
           value={formData.address}
           onChange={handleChange}
+          disabled={isSubmitting}
         />
       </div>
       
@@ -166,6 +177,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
             name="city"
             value={formData.city}
             onChange={handleChange}
+            disabled={isSubmitting}
           />
         </div>
         
@@ -176,6 +188,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
             name="postalCode"
             value={formData.postalCode}
             onChange={handleChange}
+            disabled={isSubmitting}
           />
         </div>
         
@@ -186,6 +199,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
             name="country"
             value={formData.country}
             onChange={handleChange}
+            disabled={isSubmitting}
           />
         </div>
       </div>
@@ -200,6 +214,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
           value={formData.invoiceAddress}
           onChange={handleChange}
           placeholder="Leave blank to use main address"
+          disabled={isSubmitting}
         />
       </div>
       
@@ -212,6 +227,7 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
             type="number"
             value={formData.paymentTerms}
             onChange={handleChange}
+            disabled={isSubmitting}
           />
         </div>
         
@@ -222,19 +238,29 @@ export const ClientForm = ({ client, onSubmit, onCancel }: ClientFormProps) => {
             name="deliveryTerms"
             value={formData.deliveryTerms}
             onChange={handleChange}
+            disabled={isSubmitting}
           />
         </div>
       </div>
       
       <DialogFooter className="pt-4">
-        <Button variant="outline" type="button" onClick={onCancel}>
+        <Button 
+          variant="outline" 
+          type="button" 
+          onClick={onCancel} 
+          disabled={isSubmitting}
+        >
           Cancel
         </Button>
         <Button 
           type="submit"
           className="bg-success hover:bg-success/90 text-success-foreground"
+          disabled={isSubmitting}
         >
-          {client ? "Save Changes" : "Add Client"}
+          {isSubmitting 
+            ? (client ? "Saving..." : "Adding...") 
+            : (client ? "Save Changes" : "Add Client")
+          }
         </Button>
       </DialogFooter>
     </form>

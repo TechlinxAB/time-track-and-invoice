@@ -92,10 +92,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loadTimeEntriesByDate = async (date: string) => {
     const timeEntriesData = await getTimeEntriesByDate(date);
-    // Merge with existing entries from other dates
+    // Fix: Store all time entries without filtering out other dates
     setTimeEntries(prevEntries => {
-      const filteredPrevEntries = prevEntries.filter(entry => entry.date !== date);
-      return [...filteredPrevEntries, ...timeEntriesData];
+      // Create a new map to store entries with the most recent version for each ID
+      const entriesMap = new Map<string, TimeEntry>();
+      
+      // Add existing entries to the map (except ones for the current date)
+      prevEntries.forEach(entry => {
+        if (entry.date !== date) {
+          entriesMap.set(entry.id, entry);
+        }
+      });
+      
+      // Add new entries for the current date, overwriting any with the same ID
+      timeEntriesData.forEach(entry => {
+        entriesMap.set(entry.id, entry);
+      });
+      
+      // Convert the map back to an array
+      return Array.from(entriesMap.values());
     });
   };
 

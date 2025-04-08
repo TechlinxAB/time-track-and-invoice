@@ -23,6 +23,7 @@ const Clients = () => {
   const [open, setOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddClient = () => {
     setEditClient(null);
@@ -40,6 +41,7 @@ const Clients = () => {
   };
 
   const handleSubmit = async (formData: Omit<Client, "id">) => {
+    setIsSubmitting(true);
     try {
       if (editClient) {
         const updatedClient = { ...editClient, ...formData };
@@ -66,6 +68,7 @@ const Clients = () => {
       toast.error("An unexpected error occurred");
     } finally {
       setEditClient(null);
+      setIsSubmitting(false);
     }
   };
 
@@ -114,7 +117,15 @@ const Clients = () => {
         />
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(o) => {
+        // Only allow closing if not in submitting state
+        if (!isSubmitting || !o) {
+          setOpen(o);
+          if (!o) {
+            setEditClient(null);
+          }
+        }
+      }}>
         <DialogContent className="sm:max-w-[525px] max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>{editClient ? "Edit Client" : "Add Client"}</DialogTitle>
@@ -127,6 +138,7 @@ const Clients = () => {
               client={editClient}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
+              isSubmitting={isSubmitting}
             />
           </ScrollArea>
         </DialogContent>
