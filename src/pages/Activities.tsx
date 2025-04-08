@@ -1,5 +1,5 @@
-
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -13,22 +13,71 @@ import { mockActivities } from "@/data/mockData";
 import { Activity } from "@/types";
 import { Switch } from "@/components/ui/switch";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const Activities = () => {
-  const [activities, setActivities] = useState<Activity[]>(mockActivities);
+  const { user } = useAuth();
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("services");
+  const [isLoading, setIsLoading] = useState(false);
   
-  // Form state for new activity
   const [newActivity, setNewActivity] = useState<Partial<Activity>>({
     name: "",
     hourlyRate: 0,
     isFixedPrice: false,
     fixedPrice: 0,
-    type: "service" as const, // Default type
+    type: "service" as const,
   });
 
-  // Handle form changes
+  const loadActivities = async () => {
+    if (!user) {
+      console.log("No authenticated user, skipping activities load");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
+      
+      if (error) {
+        console.error('Error loading activities:', error.message);
+        toast.error("Failed to load activities");
+        return;
+      }
+      
+      console.log(`Loaded ${data?.length || 0} activities`);
+      
+      const mappedActivities = data.map(item => ({
+        id: item.id,
+        name: item.name,
+        hourlyRate: item.hourly_rate || 0,
+        isFixedPrice: item.is_fixed_price || false,
+        fixedPrice: item.fixed_price || 0,
+        type: item.type || "service",
+        accountNumber: item.account_number,
+        vatPercentage: item.vat_percentage,
+        articleNumber: item.article_number
+      }));
+      
+      setActivities(mappedActivities);
+    } catch (err) {
+      console.error("Error loading activities:", err);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    loadActivities();
+  }, [user]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
     
@@ -57,37 +106,80 @@ const Activities = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newActivityItem: Activity = {
-      id: `act-${Date.now()}`,
-      name: newActivity.name || "Untitled Activity",
-      hourlyRate: newActivity.hourlyRate || 0,
-      isFixedPrice: newActivity.isFixedPrice || false,
-      fixedPrice: newActivity.fixedPrice || 0,
-      type: newActivity.type || "service",
-    };
+    if (!user) {
+      toast.error("You must be logged in to add activities");
+      return;
+    }
     
-    setActivities([...activities, newActivityItem]);
-    setNewActivity({
-      name: "",
-      hourlyRate: 0,
-      isFixedPrice: false,
-      fixedPrice: 0,
-      type: "service",
-    });
-    setDialogOpen(false);
+    setIsLoading(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .insert({
+          user_id: user.id,
+          name: newActivity.name || "Untitled Activity",
+          hourly_rate: newActivity.hourlyRate || 0,
+          is_fixed_price: newActivity.isFixedPrice || false,
+          fixed_price: newActivity.fixedPrice || 0,
+          type: newActivity.type || "service",
+          account_number: newActivity.accountNumber,
+          vat_percentage: newActivity.vatPercentage || 25,
+          article_number: newActivity.articleNumber
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("Error adding activity:", error.message);
+        toast.error("Failed to add activity");
+        return;
+      }
+      
+      console.log("Activity added successfully:", data);
+      
+      const newActivityItem: Activity = {
+        id: data.id,
+        name: data.name,
+        hourlyRate: data.hourly_rate || 0,
+        isFixedPrice: data.is_fixed_price || false,
+        fixedPrice: data.fixed_price || 0,
+        type: data.type || "service",
+        accountNumber: data.account_number,
+        vatPercentage: data.vat_percentage,
+        articleNumber: data.article_number
+      };
+      
+      setActivities([...activities, newActivityItem]);
+      
+      setNewActivity({
+        name: "",
+        hourlyRate: 0,
+        isFixedPrice: false,
+        fixedPrice: 0,
+        type: "service",
+      });
+      
+      toast.success("Activity added successfully");
+      setDialogOpen(false);
+    } catch (err) {
+      console.error("Error adding activity:", err);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Filter activities based on active tab
   const filteredActivities = activities.filter(activity => 
     (activeTab === "services" && activity.type === "service") || 
     (activeTab === "products" && activity.type === "product")
   );
 
   return (
-    <div className="container mx-auto">
+    <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Activities & Products</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -232,8 +324,12 @@ const Activities = () => {
                 />
               </div>
               
-              <Button type="submit" className="w-full bg-success hover:bg-success/90">
-                Add Activity
+              <Button 
+                type="submit" 
+                className="w-full bg-success hover:bg-success/90"
+                disabled={isLoading}
+              >
+                {isLoading ? "Adding..." : "Add Activity"}
               </Button>
             </form>
           </DialogContent>
@@ -254,50 +350,56 @@ const Activities = () => {
           </Tabs>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Account</TableHead>
-                <TableHead className="text-right">VAT %</TableHead>
-                <TableHead className="text-right">Article #</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredActivities.length > 0 ? (
-                filteredActivities.map((activity) => (
-                  <TableRow key={activity.id}>
-                    <TableCell className="font-medium">{activity.name}</TableCell>
-                    <TableCell>
-                      {activity.type === "service" ? "Service" : "Product"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {activity.isFixedPrice
-                        ? `${activity.fixedPrice} SEK`
-                        : `${activity.hourlyRate} SEK/h`}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {activity.accountNumber || "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {activity.vatPercentage || 25}%
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {activity.articleNumber || "-"}
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <p>Loading activities...</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Account</TableHead>
+                  <TableHead className="text-right">VAT %</TableHead>
+                  <TableHead className="text-right">Article #</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredActivities.length > 0 ? (
+                  filteredActivities.map((activity) => (
+                    <TableRow key={activity.id}>
+                      <TableCell className="font-medium">{activity.name}</TableCell>
+                      <TableCell>
+                        {activity.type === "service" ? "Service" : "Product"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {activity.isFixedPrice
+                          ? `${activity.fixedPrice} SEK`
+                          : `${activity.hourlyRate} SEK/h`}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {activity.accountNumber || "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {activity.vatPercentage || 25}%
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {activity.articleNumber || "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No {activeTab === "services" ? "services" : "products"} found. Add your first one!
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    No {activeTab === "services" ? "services" : "products"} found. Add your first one!
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

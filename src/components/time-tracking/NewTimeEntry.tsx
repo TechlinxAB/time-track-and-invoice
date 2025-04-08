@@ -1,5 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext"; // Import Auth context
 import {
   Select,
   SelectContent,
@@ -47,6 +49,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => {
   const { clients, activities, addTimeEntry } = useAppContext();
+  const { user } = useAuth(); // Get the current authenticated user
   const [activityType, setActivityType] = useState<"hourly" | "fixed">("hourly");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -91,6 +94,15 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
     try {
       setIsSubmitting(true);
       
+      // Check if user is authenticated
+      if (!user) {
+        toast.error("You must be logged in to add time entries");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      console.log("Adding time entry for user:", user.id);
+      
       const duration = calculateDuration(data.startTime, data.endTime);
       
       const selectedActivity = activities.find(a => a.id === data.activityId);
@@ -108,7 +120,7 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
         entryType: selectedActivity?.type || "service"
       };
       
-      addTimeEntry(timeEntryData);
+      await addTimeEntry(timeEntryData);
       
       toast.success("Time entry added successfully");
       
@@ -116,8 +128,8 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
         onSuccessfulAdd();
       }, 100);
     } catch (error) {
-      toast.error("Failed to add time entry");
       console.error("Error adding time entry:", error);
+      toast.error("Failed to add time entry");
     } finally {
       setIsSubmitting(false);
     }

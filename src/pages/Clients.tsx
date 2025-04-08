@@ -39,7 +39,9 @@ const Clients = () => {
 
   const handleCancel = () => {
     setOpen(false);
-    setEditClient(null);
+    setTimeout(() => {
+      setEditClient(null);
+    }, 300); // Wait for dialog animation to finish
   };
 
   const handleSubmit = async (formData: Omit<Client, "id">) => {
@@ -61,7 +63,7 @@ const Clients = () => {
         const success = await updateClient(updatedClient);
         if (success) {
           toast.success("Client updated successfully");
-          loadClients();
+          await loadClients(); // Ensure we reload clients
           setOpen(false);
         } else {
           toast.error("Failed to update client");
@@ -71,7 +73,7 @@ const Clients = () => {
         const newClient = await createNewClient(formData);
         if (newClient) {
           toast.success("Client added successfully");
-          await loadClients();
+          await loadClients(); // Ensure we reload clients
           setOpen(false);
         } else {
           toast.error("Failed to add client");
@@ -81,8 +83,10 @@ const Clients = () => {
       console.error("Error creating/updating client:", error);
       toast.error("An unexpected error occurred");
     } finally {
-      setEditClient(null);
-      setIsSubmitting(false);
+      setTimeout(() => {
+        setEditClient(null);
+        setIsSubmitting(false);
+      }, 300); // Clean up state after dialog closes
     }
   };
 
@@ -98,7 +102,7 @@ const Clients = () => {
       const success = await deleteClient(id);
       if (success) {
         toast.success("Client deleted successfully");
-        loadClients();
+        await loadClients(); // Ensure we reload clients
       } else {
         toast.error("Failed to delete client");
       }
@@ -142,11 +146,19 @@ const Clients = () => {
         if (!isSubmitting || !o) {
           setOpen(o);
           if (!o) {
-            setEditClient(null);
+            // Add delay to ensure animation completes before clearing state
+            setTimeout(() => {
+              setEditClient(null);
+            }, 300);
           }
         }
       }}>
-        <DialogContent className="sm:max-w-[525px] max-h-[90vh]">
+        <DialogContent className="sm:max-w-[525px] max-h-[90vh]" onInteractOutside={(e) => {
+          // Prevent interaction outside while submitting
+          if (isSubmitting) {
+            e.preventDefault();
+          }
+        }}>
           <DialogHeader>
             <DialogTitle>{editClient ? "Edit Client" : "Add Client"}</DialogTitle>
             <DialogDescription>

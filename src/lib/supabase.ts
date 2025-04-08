@@ -251,58 +251,70 @@ export const createNewClient = async (client: Omit<Client, "id">): Promise<Clien
   
   console.log("Creating client for user:", userData.user.id);
   
-  const { data, error } = await supabase
-    .from('clients')
-    .insert({
-      user_id: userData.user.id,  // Set the user_id explicitly
-      name: client.name,
-      company: client.company,
-      email: client.email,
-      phone: client.phone,
-      address: client.address,
-      postal_code: client.postalCode,
-      city: client.city,
-      country: client.country,
-      vat_number: client.vatNumber,
-      organization_number: client.organizationNumber,
-      customer_number: client.customerNumber,
-      notes: client.notes,
-      invoice_address: client.invoiceAddress,
-      payment_terms: client.paymentTerms,
-      delivery_terms: client.deliveryTerms
-    })
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error creating client:', error.message);
-    console.error('Full error details:', JSON.stringify(error));
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .insert({
+        user_id: userData.user.id,  // Set the user_id explicitly
+        name: client.name,
+        company: client.company,
+        email: client.email,
+        phone: client.phone,
+        address: client.address,
+        postal_code: client.postalCode,
+        city: client.city,
+        country: client.country,
+        vat_number: client.vatNumber,
+        organization_number: client.organizationNumber,
+        customer_number: client.customerNumber,
+        notes: client.notes,
+        invoice_address: client.invoiceAddress,
+        payment_terms: client.paymentTerms,
+        delivery_terms: client.deliveryTerms
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating client:', error.message);
+      console.error('Full error details:', JSON.stringify(error));
+      toast({ 
+        title: "Error",
+        description: `Failed to create client: ${error.message}`,
+        variant: "destructive" 
+      });
+      return null;
+    }
+    
+    console.log("Client created successfully:", data);
+    
+    return {
+      id: data.id,
+      name: data.name,
+      company: data.company,
+      email: data.email,
+      phone: data.phone,
+      address: data.address,
+      postalCode: data.postal_code,
+      city: data.city,
+      country: data.country,
+      vatNumber: data.vat_number,
+      organizationNumber: data.organization_number,
+      customerNumber: data.customer_number,
+      notes: data.notes,
+      invoiceAddress: data.invoice_address,
+      paymentTerms: data.payment_terms,
+      deliveryTerms: data.delivery_terms
+    };
+  } catch (err) {
+    console.error('Unexpected error during client creation:', err);
     toast({ 
       title: "Error",
-      description: `Failed to create client: ${error.message}`,
+      description: "An unexpected error occurred while creating client",
       variant: "destructive" 
     });
     return null;
   }
-  
-  return {
-    id: data.id,
-    name: data.name,
-    company: data.company,
-    email: data.email,
-    phone: data.phone,
-    address: data.address,
-    postalCode: data.postal_code,
-    city: data.city,
-    country: data.country,
-    vatNumber: data.vat_number,
-    organizationNumber: data.organization_number,
-    customerNumber: data.customer_number,
-    notes: data.notes,
-    invoiceAddress: data.invoice_address,
-    paymentTerms: data.payment_terms,
-    deliveryTerms: data.delivery_terms
-  };
 };
 
 export const updateClient = async (client: Client): Promise<boolean> => {
@@ -414,6 +426,7 @@ export const fetchActivities = async (): Promise<Activity[]> => {
   const { data, error } = await supabase
     .from('activities')
     .select('*')
+    .eq('user_id', supabase.auth.user?.id)  // Filter by the current user's ID
     .order('name', { ascending: true });
   
   if (error) {
@@ -425,6 +438,8 @@ export const fetchActivities = async (): Promise<Activity[]> => {
     });
     return [];
   }
+  
+  console.log(`Retrieved ${data?.length || 0} activities`);
   
   return data.map(activity => ({
     id: activity.id,
@@ -444,6 +459,7 @@ export const fetchTimeEntries = async (): Promise<TimeEntry[]> => {
   const { data, error } = await supabase
     .from('time_entries')
     .select('*')
+    .eq('user_id', supabase.auth.user?.id)
     .order('date', { ascending: false });
   
   if (error) {
@@ -477,6 +493,7 @@ export const getTimeEntriesByDate = async (date: string): Promise<TimeEntry[]> =
   const { data, error } = await supabase
     .from('time_entries')
     .select('*')
+    .eq('user_id', supabase.auth.user?.id)
     .eq('date', date)
     .order('start_time', { ascending: true });
   
@@ -506,6 +523,7 @@ export const getTimeEntriesByDateRange = async (startDate: string, endDate: stri
   const { data, error } = await supabase
     .from('time_entries')
     .select('*')
+    .eq('user_id', supabase.auth.user?.id)
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: true })
@@ -538,6 +556,7 @@ export const createTimeEntry = async (entry: Omit<TimeEntry, "id">): Promise<Tim
   const { data, error } = await supabase
     .from('time_entries')
     .insert({
+      user_id: supabase.auth.user?.id,  // Set the user_id explicitly
       client_id: entry.clientId,
       activity_id: entry.activityId,
       date: entry.date,
@@ -563,6 +582,8 @@ export const createTimeEntry = async (entry: Omit<TimeEntry, "id">): Promise<Tim
     });
     return null;
   }
+  
+  console.log("Time entry created successfully:", data);
   
   return {
     id: data.id,
@@ -600,10 +621,12 @@ export const updateTimeEntry = async (entry: TimeEntry): Promise<boolean> => {
       unit_price: entry.unitPrice,
       updated_at: new Date().toISOString()
     })
-    .eq('id', entry.id);
+    .eq('id', entry.id)
+    .eq('user_id', supabase.auth.user?.id);  // Ensure we're only updating the user's own time entries
   
   if (error) {
     console.error('Error updating time entry:', error.message);
+    console.error('Full error details:', JSON.stringify(error));
     toast({ 
       title: "Error",
       description: `Failed to update time entry: ${error.message}`,
@@ -620,10 +643,12 @@ export const deleteTimeEntry = async (id: string): Promise<boolean> => {
   const { error } = await supabase
     .from('time_entries')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', supabase.auth.user?.id);  // Ensure we're only deleting the user's own time entries
   
   if (error) {
     console.error('Error deleting time entry:', error.message);
+    console.error('Full error details:', JSON.stringify(error));
     toast({ 
       title: "Error",
       description: `Failed to delete time entry: ${error.message}`,
