@@ -5,11 +5,15 @@ export interface Client {
   email?: string;
   company?: string;
   phone?: string;
-  organizationNumber?: string; // Added for Swedish company identification
+  organizationNumber?: string; // Swedish company ID
+  customerNumber?: string; // Fortnox customer number
   address?: string;
   city?: string;
   postalCode?: string;
   country?: string;
+  invoiceAddress?: string; // Can be different from regular address
+  paymentTerms?: number; // Days until payment is due
+  deliveryTerms?: string;
 }
 
 export interface Activity {
@@ -18,7 +22,10 @@ export interface Activity {
   hourlyRate: number;
   isFixedPrice: boolean;
   fixedPrice?: number;
-  accountNumber?: string; // Added for Swedish Fortnox kontnummer
+  accountNumber?: string; // Swedish booking account number
+  vatRate?: number; // VAT percentage
+  articleNumber?: string; // Fortnox article number
+  type: 'service' | 'product';
 }
 
 export interface Product {
@@ -30,19 +37,24 @@ export interface Product {
   unit?: string; // e.g., pcs, hours, etc.
   sku?: string; // Stock Keeping Unit
   inStock?: number;
+  vatRate?: number; // VAT percentage
+  articleNumber?: string; // Fortnox article number
 }
 
 export interface TimeEntry {
   id: string;
   clientId: string;
   activityId: string;
+  productId?: string; // For product entries instead of activities
   date: string; // ISO string
   startTime: string; // HH:MM format
   endTime: string; // HH:MM format
   description: string;
   duration: number; // in minutes
+  quantity?: number; // For product entries
   billable: boolean;
   invoiced: boolean;
+  entryType: 'service' | 'product';
 }
 
 export interface Invoice {
@@ -54,6 +66,7 @@ export interface Invoice {
   items: InvoiceItem[];
   status: 'draft' | 'sent' | 'paid' | 'overdue';
   totalAmount: number;
+  vatAmount?: number;
 }
 
 export interface InvoiceItem {
@@ -64,6 +77,9 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   amount: number;
+  vatRate?: number;
+  accountNumber?: string;
+  articleNumber?: string;
 }
 
 export type DateRange = {
@@ -76,6 +92,7 @@ export interface FortnoxCredentials {
   clientSecret: string;
   accessToken?: string;
   refreshToken?: string;
+  connectionStatus?: 'connected' | 'disconnected' | 'pending';
 }
 
 export interface FortnoxInvoice {

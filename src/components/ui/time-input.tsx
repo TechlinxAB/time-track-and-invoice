@@ -19,57 +19,111 @@ const TimeInput = React.forwardRef<HTMLInputElement, TimeInputProps>(
   ({ value, onChange, onBlur, className, error, ...props }, ref) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const [cursorPosition, setCursorPosition] = useState<number | null>(null);
-    const [internalValue, setInternalValue] = useState(formatTimeValue(value));
-
-    // Format time to always include the colon
-    function formatTimeValue(val: string): string {
+    // Initialize with colon format for better UX
+    const [internalValue, setInternalValue] = useState(() => {
+      // If we have a value, format it properly
+      if (value) {
+        return formatTimeDisplay(value);
+      }
+      // Start with a placeholder template that shows the colon
+      return "__:__";
+    });
+    
+    // Format time for display with placeholder underscores and colon
+    function formatTimeDisplay(val: string): string {
       // Remove any non-digit characters
-      const digits = val.replace(/\D/g, "");
+      const digits = val.replace(/\D/g, "").substring(0, 4);
       
-      // Handle empty case
-      if (!digits.length) return "";
+      if (!digits.length) return "__:__";
       
-      // If we have 1 or 2 digits, it's just the hour portion
+      // Format with placeholders
+      let result = "__:__".split('');
+      
+      // Fill in digits from left to right
+      for (let i = 0; i < digits.length; i++) {
+        if (i < 2) {
+          result[i] = digits[i];
+        } else if (i >= 2) {
+          result[i + 1] = digits[i];
+        }
+      }
+      
+      return result.join('');
+    }
+    
+    // Convert displayed value to actual value for the form
+    function displayValueToActual(displayValue: string): string {
+      // Extract digits
+      const digits = displayValue.replace(/[^0-9]/g, "");
+      
       if (digits.length <= 2) {
         return digits;
       }
       
-      // Extract hours and minutes
+      // Format as HH:MM
       const hours = digits.substring(0, 2);
       const minutes = digits.substring(2, 4);
-      
       return `${hours}:${minutes}`;
+    }
+    
+    // Replace underscore placeholders with actual digits
+    function replaceAtPosition(value: string, position: number, char: string): string {
+      const chars = value.split('');
+      if (position === 2) position = 3; // Skip the colon
+      chars[position] = char;
+      return chars.join('');
     }
 
     // Handle input changes
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newInputValue = e.target.value;
-      const curPos = e.target.selectionStart;
+      const curPos = e.target.selectionStart || 0;
+      const key = e.target.value.charAt(curPos - 1);
       
-      // Store cursor position for restoration
-      setCursorPosition(curPos);
-      
-      // Remove all non-digits first
-      const digitsOnly = newInputValue.replace(/\D/g, "");
-      
-      // Format and limit to 4 digits (HHMM)
-      const limitedDigits = digitsOnly.substring(0, 4);
-      
-      // Format the time with colon
-      const formattedTime = formatTimeValue(limitedDigits);
-      
-      // Update internal state
-      setInternalValue(formattedTime);
-      
-      // Call parent onChange with the raw HH:MM format
-      if (formattedTime.includes(":")) {
-        onChange(formattedTime);
-      } else if (formattedTime.length >= 3) {
-        const hours = formattedTime.substring(0, 2);
-        const minutes = formattedTime.substring(2);
-        onChange(`${hours}:${minutes}`);
-      } else {
-        onChange(formattedTime);
+      // If user typed a digit
+      if (/^\d$/.test(key)) {
+        let newValue = internalValue;
+        
+        // Find where to place the digit (skipping the colon)
+        let insertPos = curPos - 1;
+        if (internalValue[insertPos] === ':') insertPos++;
+        
+        // If we're typing from left to right, find the next placeholder
+        if (internalValue[insertPos] !== '_') {
+          insertPos = internalValue.indexOf('_');
+          if (insertPos === -1) insertPos = 0; // No placeholders left
+        }
+        
+        // Replace at the correct position
+        newValue = replaceAtPosition(newValue, insertPos, key);
+        
+        // Update internal state
+        setInternalValue(newValue);
+        
+        // Calculate where cursor should go next
+        let nextPos = insertPos + 1;
+        if (nextPos === 2) nextPos = 3; // Skip colon
+        setCursorPosition(nextPos);
+        
+        // Call parent onChange with the properly formatted time
+        const actualValue = displayValueToActual(newValue);
+        onChange(actualValue);
+      } else if (e.target.value.length < internalValue.length) {
+        // Handle deletion/backspace
+        const deletePos = curPos;
+        let newValue = internalValue;
+        
+        if (deletePos < newValue.length && newValue[deletePos] !== ':') {
+          newValue = replaceAtPosition(newValue, deletePos, '_');
+        } else if (deletePos > 0 && newValue[deletePos - 1] !== ':') {
+          newValue = replaceAtPosition(newValue, deletePos - 1, '_');
+        }
+        
+        setInternalValue(newValue);
+        setCursorPosition(deletePos);
+        
+        // Call parent onChange
+        const actualValue = displayValueToActual(newValue);
+        onChange(actualValue);
       }
     };
 
@@ -80,51 +134,92 @@ const TimeInput = React.forwardRef<HTMLInputElement, TimeInputProps>(
       
       const curPos = input.selectionStart || 0;
       
-      // When user is at the colon position and presses right arrow, skip over the colon
+      // Skip over the colon when pressing arrow keys
       if (e.key === "ArrowRight" && curPos === 2 && internalValue.charAt(2) === ":") {
         e.preventDefault();
         input.setSelectionRange(3, 3);
-      }
-      
-      // When user is right after the colon and presses left arrow, skip over the colon
-      if (e.key === "ArrowLeft" && curPos === 3 && internalValue.charAt(2) === ":") {
+      } else if (e.key === "ArrowLeft" && curPos === 3 && internalValue.charAt(2) === ":") {
         e.preventDefault();
         input.setSelectionRange(2, 2);
-      }
-      
-      // Automatically add colon when typing the 3rd digit
-      if (/^\d$/.test(e.key) && curPos === 2 && internalValue.length === 2) {
+      } else if (e.key === "Backspace") {
+        if (curPos > 0 && curPos < internalValue.length) {
+          if (internalValue[curPos - 1] === ':') {
+            e.preventDefault();
+            input.setSelectionRange(curPos - 1, curPos - 1);
+          } else if (internalValue[curPos - 1] !== '_') {
+            e.preventDefault();
+            const newValue = replaceAtPosition(internalValue, curPos - 1, '_');
+            setInternalValue(newValue);
+            setCursorPosition(curPos - 1);
+            
+            const actualValue = displayValueToActual(newValue);
+            onChange(actualValue);
+          }
+        }
+      } else if (e.key === "Delete") {
+        if (curPos < internalValue.length) {
+          if (internalValue[curPos] === ':') {
+            e.preventDefault();
+            input.setSelectionRange(curPos + 1, curPos + 1);
+          } else if (internalValue[curPos] !== '_') {
+            e.preventDefault();
+            const newValue = replaceAtPosition(internalValue, curPos, '_');
+            setInternalValue(newValue);
+            setCursorPosition(curPos);
+            
+            const actualValue = displayValueToActual(newValue);
+            onChange(actualValue);
+          }
+        }
+      } else if (/^\d$/.test(e.key)) {
         e.preventDefault();
-        const newValue = `${internalValue}:${e.key}`;
+        
+        let insertPos = curPos;
+        if (internalValue[insertPos] === ':') insertPos++;
+        
+        // If we're at a position that already has a digit, move to the next placeholder
+        if (internalValue[insertPos] !== '_') {
+          insertPos = internalValue.indexOf('_');
+          if (insertPos === -1) {
+            // No placeholders left, replace at current position
+            insertPos = curPos;
+            if (insertPos >= 2) insertPos++; // Skip colon
+          }
+        }
+        
+        const newValue = replaceAtPosition(internalValue, insertPos, e.key);
         setInternalValue(newValue);
-        onChange(newValue);
-        setTimeout(() => {
-          input.setSelectionRange(4, 4);
-        }, 0);
+        
+        // Move cursor to next position
+        let nextPos = insertPos + 1;
+        if (nextPos === 2) nextPos = 3; // Skip colon
+        setCursorPosition(nextPos);
+        
+        const actualValue = displayValueToActual(newValue);
+        onChange(actualValue);
       }
     };
 
-    // Position cursor correctly after re-render
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      if (internalValue === "__:__") {
+        setCursorPosition(0);
+      }
+    };
+
+    // Handle external value changes
+    useEffect(() => {
+      if (value !== displayValueToActual(internalValue)) {
+        setInternalValue(formatTimeDisplay(value));
+      }
+    }, [value]);
+
+    // Position cursor after state update
     useEffect(() => {
       if (cursorPosition !== null && inputRef.current) {
-        // Adjust cursor position if we've added a colon
-        let adjustedPosition = cursorPosition;
-        if (internalValue.includes(":") && cursorPosition > 2) {
-          // If cursor was after where we added the colon, increment position
-          adjustedPosition = Math.min(cursorPosition + 1, internalValue.length);
-        }
-        inputRef.current.setSelectionRange(adjustedPosition, adjustedPosition);
+        inputRef.current.setSelectionRange(cursorPosition, cursorPosition);
         setCursorPosition(null);
       }
     }, [internalValue, cursorPosition]);
-
-    // Handle new values from parent
-    useEffect(() => {
-      const formattedExternalValue = formatTimeValue(value);
-      if (formattedExternalValue !== internalValue) {
-        setInternalValue(formattedExternalValue);
-      }
-    }, [value]);
 
     return (
       <Input
@@ -137,10 +232,10 @@ const TimeInput = React.forwardRef<HTMLInputElement, TimeInputProps>(
           }
           inputRef.current = node;
         }}
-        placeholder="HH:MM"
         value={internalValue}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
         onBlur={onBlur}
         className={cn(
           "input-time",

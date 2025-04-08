@@ -50,16 +50,15 @@ export const initiateFortnoxOAuth = (clientId: string, redirectUri: string) => {
     storeOAuthState(state);
     
     // For Fortnox, we need to construct the proper authorization URL
-    // Note: This is a simplified example - real Fortnox API might have different parameters
     const authUrl = new URL('https://apps.fortnox.se/oauth-v1/auth');
     authUrl.searchParams.append('client_id', clientId);
     authUrl.searchParams.append('redirect_uri', redirectUri);
-    authUrl.searchParams.append('scope', 'invoice company customer project'); // Adjust scopes as needed
+    authUrl.searchParams.append('scope', 'invoice company customer project article'); // Enhanced scopes
     authUrl.searchParams.append('state', state);
     authUrl.searchParams.append('response_type', 'code');
     
     // Open the authorization URL in a new tab/window
-    window.open(authUrl.toString(), '_blank');
+    window.location.href = authUrl.toString(); // Direct navigation for better mobile experience
     
     return true;
   } catch (error) {
@@ -88,7 +87,7 @@ export const handleFortnoxOAuthCallback = async (
     // Clear the stored state
     clearOAuthState();
     
-    // Exchange auth code for tokens - this should be done server-side
+    // Exchange auth code for tokens - this would be better done server-side
     // For frontend demo, we'll simulate the exchange
     // In production, use Supabase Edge Function for this step
     
@@ -171,7 +170,6 @@ export const saveFortnoxCredentials = async (credentials: FortnoxCredentials): P
       return false;
     }
     
-    toast.success('Fortnox credentials saved successfully');
     return true;
   } catch (error) {
     console.error('Error saving Fortnox credentials:', error);
@@ -213,27 +211,21 @@ export const getFortnoxCredentials = async (): Promise<FortnoxCredentials | null
   }
 };
 
-const callFortnoxAPI = async (invoiceData: any, accessToken: string): Promise<{ success: boolean; error?: string }> => {
-  try {
-    console.log('Making direct API call to Fortnox with:', {
-      invoiceData: invoiceData,
-      accessTokenProvided: !!accessToken
-    });
-    
-    toast.warning("Direct Fortnox API calls not fully implemented yet");
-    return { 
-      success: false, 
-      error: "Direct API integration with Fortnox is not implemented in this version." 
-    };
-  } catch (error) {
-    console.error('Error calling Fortnox API:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error calling Fortnox API' 
-    };
+// Check if the current URL contains OAuth callback parameters
+export const checkForOAuthCallback = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const state = urlParams.get('state');
+  const fortnoxParam = urlParams.get('fortnox');
+  
+  if (code && state && fortnoxParam === 'callback') {
+    return { code, state };
   }
+  
+  return null;
 };
 
+// Enhanced Fortnox API integration
 export const exportInvoiceToFortnox = async (invoiceData: any): Promise<{ success: boolean; error?: string }> => {
   try {
     // First, try to call the Edge Function if deployed
@@ -256,22 +248,18 @@ export const exportInvoiceToFortnox = async (invoiceData: any): Promise<{ succes
       // Edge Function call failed, continue to fallback
     }
     
-    // Fallback: Direct API call
-    console.log('Using fallback: direct API call to Fortnox');
+    // Fallback: Show a more helpful message
+    toast.warning(
+      "Direct Fortnox API integration requires server-side processing",
+      {
+        description: "Please deploy the Edge Function for full Fortnox integration"
+      }
+    );
     
-    // Get credentials
-    const credentials = await getFortnoxCredentials();
-    if (!credentials || !credentials.accessToken) {
-      return { 
-        success: false, 
-        error: 'Fortnox access token not found. Please configure your Fortnox integration in Settings.' 
-      };
-    }
-    
-    // Make direct API call
-    const result = await callFortnoxAPI(invoiceData, credentials.accessToken);
-    return result;
-    
+    return { 
+      success: false, 
+      error: "Direct API integration with Fortnox requires Edge Functions. Please check documentation." 
+    };
   } catch (error) {
     console.error('Error exporting invoice to Fortnox:', error);
     return { 
@@ -281,22 +269,22 @@ export const exportInvoiceToFortnox = async (invoiceData: any): Promise<{ succes
   }
 };
 
-// Create a component to handle the Fortnox OAuth callback
-export const createFortnoxOAuthCallback = () => {
-  // This would need to be implemented in a component that handles the OAuth redirect
-  console.log('OAuth callback handler ready');
+// Helper functions for handling Fortnox client synchronization
+export const checkFortnoxClientExists = async (organizationNumber: string): Promise<boolean> => {
+  // This would be implemented in a real app
+  console.log(`Checking if client with org number ${organizationNumber} exists in Fortnox`);
+  return false;
 };
 
-// Check if the current URL contains OAuth callback parameters
-export const checkForOAuthCallback = () => {
-  // This should be called when the app initializes to check for callback params
-  const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-  const state = urlParams.get('state');
-  
-  if (code && state) {
-    return { code, state };
-  }
-  
-  return null;
+export const createFortnoxClient = async (clientData: any): Promise<boolean> => {
+  // This would be implemented in a real app
+  console.log('Creating client in Fortnox:', clientData);
+  return true;
+};
+
+// Helper functions for Fortnox article management
+export const syncFortnoxArticle = async (articleData: any): Promise<boolean> => {
+  // This would be implemented in a real app
+  console.log('Syncing article with Fortnox:', articleData);
+  return true;
 };

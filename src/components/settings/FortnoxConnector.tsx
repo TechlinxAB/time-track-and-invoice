@@ -18,13 +18,16 @@ import {
   FortnoxCredentials, 
   getFortnoxCredentials, 
   saveFortnoxCredentials,
-  initiateFortnoxOAuth 
+  initiateFortnoxOAuth,
+  handleFortnoxOAuthCallback,
+  checkForOAuthCallback
 } from '@/services/fortnoxService';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, ArrowRight, Link } from 'lucide-react';
 
 const FortnoxConnector = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [credentials, setCredentials] = useState<FortnoxCredentials>({
     clientId: '',
     clientSecret: '',
@@ -47,7 +50,60 @@ const FortnoxConnector = () => {
     };
 
     loadCredentials();
+    
+    // Check if we're returning from an OAuth redirect
+    const oauthParams = checkForOAuthCallback();
+    if (oauthParams) {
+      handleOAuthCallback(oauthParams.code, oauthParams.state);
+    }
   }, []);
+  
+  // Handle OAuth callback after redirect
+  const handleOAuthCallback = async (code: string, state: string) => {
+    try {
+      setIsConnecting(true);
+      
+      // Remove OAuth parameters from URL for cleaner UX
+      const url = new URL(window.location.href);
+      url.searchParams.delete('code');
+      url.searchParams.delete('state');
+      url.searchParams.delete('fortnox');
+      window.history.replaceState({}, document.title, url.toString());
+      
+      // Get saved credentials
+      const savedCreds = await getFortnoxCredentials();
+      if (!savedCreds) {
+        toast.error('Missing Fortnox credentials');
+        return;
+      }
+      
+      // Exchange code for token
+      const redirectUri = `${window.location.origin}/settings?fortnox=callback`;
+      const success = await handleFortnoxOAuthCallback(
+        code,
+        state,
+        savedCreds.clientId,
+        savedCreds.clientSecret,
+        redirectUri
+      );
+      
+      if (success) {
+        toast.success('Successfully connected to Fortnox!');
+        // Reload credentials to get updated connection status
+        const updatedCredentials = await getFortnoxCredentials();
+        if (updatedCredentials) {
+          setCredentials(updatedCredentials);
+        }
+      } else {
+        toast.error('Failed to connect to Fortnox');
+      }
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+      toast.error('An error occurred during Fortnox connection');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   const handleSaveCredentials = async () => {
     if (!credentials.clientId || !credentials.clientSecret) {
@@ -58,6 +114,7 @@ const FortnoxConnector = () => {
     try {
       setIsSaving(true);
       await saveFortnoxCredentials(credentials);
+      toast.success('Credentials saved successfully');
     } catch (error) {
       console.error('Error saving credentials:', error);
       toast.error('Failed to save credentials');
@@ -72,11 +129,19 @@ const FortnoxConnector = () => {
       return;
     }
 
+    setIsConnecting(true);
     // Save credentials first
     handleSaveCredentials().then(() => {
       // After saving, initiate the OAuth flow
       const redirectUri = `${window.location.origin}/settings?fortnox=callback`;
-      initiateFortnoxOAuth(credentials.clientId, redirectUri);
+      const success = initiateFortnoxOAuth(credentials.clientId, redirectUri);
+      
+      if (!success) {
+        setIsConnecting(false);
+      }
+      // If successful, we'll be redirected
+    }).catch(() => {
+      setIsConnecting(false);
     });
   };
 
@@ -96,6 +161,22 @@ const FortnoxConnector = () => {
       <div className="flex justify-center items-center p-8">
         <Spinner size="lg" />
       </div>
+    );
+  }
+
+  if (isConnecting) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Spinner size="lg" />
+            <p className="mt-4 text-xl font-semibold">Connecting to Fortnox...</p>
+            <p className="mt-2 text-muted-foreground">
+              Please wait while we establish a connection with your Fortnox account.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -155,11 +236,12 @@ const FortnoxConnector = () => {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between">
+      <CardFooter className="flex flex-col sm:flex-row gap-3 sm:justify-between">
         <Button 
           variant="outline" 
           onClick={handleSaveCredentials}
           disabled={isSaving}
+          className="w-full sm:w-auto"
         >
           {isSaving ? <Spinner className="mr-2" size="sm" /> : null}
           Save Credentials
@@ -167,8 +249,9 @@ const FortnoxConnector = () => {
         <Button 
           onClick={handleConnectFortnox}
           disabled={!credentials.clientId || isSaving}
-          className="bg-success hover:bg-success/90 text-white"
+          className="bg-success hover:bg-success/90 text-white w-full sm:w-auto"
         >
+          <Link className="h-4 w-4 mr-2" />
           Connect with Fortnox
         </Button>
       </CardFooter>
