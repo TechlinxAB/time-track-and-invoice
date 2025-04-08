@@ -25,14 +25,32 @@ const FirstTimeSetup = () => {
 
     try {
       // Check if this is actually the first user
-      const { data: countData, error: countError } = await supabase.rpc('get_user_count');
-      
-      if (countError) {
-        throw new Error("Could not verify if this is the first user setup");
+      // First try using the RPC function
+      let firstUserCheck = true;
+      try {
+        const { data: countData, error: countError } = await supabase.rpc('get_user_count');
+        
+        if (countError) {
+          console.warn("Could not check user count via RPC:", countError);
+          // Fall back to counting profiles
+          const { count, error: profileCountError } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true });
+          
+          if (!profileCountError && count !== null) {
+            firstUserCheck = count === 0;
+          }
+        } else {
+          // RPC function worked
+          firstUserCheck = countData === 0;
+        }
+      } catch (err) {
+        console.warn("Error checking if this is first user:", err);
+        // Continue with setup as if it's the first user, but log the error
       }
       
       // If there are already users in the system, redirect to login
-      if (countData && countData > 0) {
+      if (!firstUserCheck) {
         toast({
           title: "Setup already completed",
           description: "The system already has users. Please log in instead.",

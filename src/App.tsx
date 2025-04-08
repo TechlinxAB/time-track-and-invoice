@@ -104,15 +104,35 @@ const FirstTimeCheck = ({ children }: { children: React.ReactNode }) => {
           return;
         }
         
-        // Query the get_user_count function
-        const { data, error } = await supabase.rpc('get_user_count');
-        
-        if (error) {
-          console.error("Error checking if first time:", error);
-          setIsFirstTime(false); // Default to false on error
-        } else {
+        // First try using the RPC function
+        try {
+          // Query the get_user_count function
+          const { data, error } = await supabase.rpc('get_user_count');
+          
+          if (error) {
+            console.warn("Error using get_user_count RPC:", error);
+            throw error; // Skip to the fallback method
+          }
+          
           // If there are no users, it's first time
           setIsFirstTime(data === 0);
+          setIsLoading(false);
+          return;
+        } catch (err) {
+          console.warn("Falling back to profile count check:", err);
+        }
+        
+        // Fallback to checking profiles table directly
+        const { count, error: profileError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+          
+        if (profileError) {
+          console.error("Error counting profiles:", profileError);
+          setIsFirstTime(false); // Default to false on error
+        } else {
+          // If there are no profiles, it's first time
+          setIsFirstTime(count === 0);
         }
       } catch (err) {
         console.error("Error in first time check:", err);

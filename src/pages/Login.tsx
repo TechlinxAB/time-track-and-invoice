@@ -24,10 +24,28 @@ const Login = () => {
     // Check if this is the first time setup
     const checkFirstTimeSetup = async () => {
       try {
-        const { data, error } = await supabase.rpc('get_user_count');
+        // First try using the RPC function
+        try {
+          const { data, error } = await supabase.rpc('get_user_count');
+          
+          if (!error && data === 0) {
+            console.log("First time setup needed - no users found via RPC");
+            setIsFirstTime(true);
+            navigate("/setup");
+            return;
+          }
+        } catch (err) {
+          console.warn("Error using get_user_count RPC:", err);
+          // Fall back to checking profiles if RPC fails
+        }
+
+        // Fall back to checking profiles table directly
+        const { count, error: profileError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
         
-        if (!error && data === 0) {
-          console.log("First time setup needed - no users found");
+        if (!profileError && count === 0) {
+          console.log("First time setup needed - no profiles found");
           setIsFirstTime(true);
           navigate("/setup");
         }
