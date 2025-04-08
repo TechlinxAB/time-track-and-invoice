@@ -9,11 +9,13 @@ import { ClientForm } from "@/components/clients/ClientForm";
 import {
   Dialog,
   DialogContent,
-  DialogDescription
+  DialogDescription,
+  DialogTitle
 } from "@/components/ui/dialog";
 import { createNewClient, updateClient, deleteClient } from "@/lib/supabase";
 import { toast } from "sonner";
 import { NoData } from "@/components/common/NoData";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Clients = () => {
   const { clients, loadClients } = useAppContext();
@@ -111,15 +113,18 @@ const Clients = () => {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[525px] max-h-[90vh] overflow-y-auto">
-          <DialogDescription className="sr-only">
-            {editClient ? "Edit client details" : "Add a new client"}
+        <DialogContent className="sm:max-w-[525px] max-h-[90vh]">
+          <DialogTitle>{editClient ? "Edit Client" : "Add Client"}</DialogTitle>
+          <DialogDescription>
+            {editClient ? "Update client details" : "Add a new client to your workspace"}
           </DialogDescription>
-          <ClientForm
-            client={editClient}
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-          />
+          <ScrollArea className="max-h-[calc(90vh-120px)] overflow-y-auto pr-4">
+            <ClientForm
+              client={editClient}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+            />
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>

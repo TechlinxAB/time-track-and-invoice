@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 import { Client, Activity, TimeEntry, UserProfile, Invoice, InvoiceItem, ConnectionTestResult, ConnectionDetails } from '@/types';
@@ -464,4 +463,106 @@ export const getTimeEntriesByDateRange = async (startDate: string, endDate: stri
     quantity: entry.quantity,
     unitPrice: entry.unit_price
   }));
+};
+
+// Create a time entry
+export const createTimeEntry = async (entry: Omit<TimeEntry, "id">): Promise<TimeEntry | null> => {
+  const { data, error } = await supabase
+    .from('time_entries')
+    .insert({
+      client_id: entry.clientId,
+      activity_id: entry.activityId,
+      date: entry.date,
+      start_time: entry.startTime,
+      end_time: entry.endTime,
+      duration: entry.duration,
+      description: entry.description,
+      billable: entry.billable,
+      invoiced: entry.invoiced,
+      entry_type: entry.entryType,
+      quantity: entry.quantity,
+      unit_price: entry.unitPrice
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error creating time entry:', error.message);
+    toast({ 
+      title: "Error",
+      description: `Failed to create time entry: ${error.message}`,
+      variant: "destructive" 
+    });
+    return null;
+  }
+  
+  return {
+    id: data.id,
+    clientId: data.client_id,
+    activityId: data.activity_id,
+    date: data.date,
+    startTime: data.start_time,
+    endTime: data.end_time,
+    duration: data.duration,
+    description: data.description,
+    billable: data.billable,
+    invoiced: data.invoiced,
+    entryType: data.entry_type,
+    quantity: data.quantity,
+    unitPrice: data.unit_price
+  };
+};
+
+// Update a time entry
+export const updateTimeEntry = async (entry: TimeEntry): Promise<boolean> => {
+  const { error } = await supabase
+    .from('time_entries')
+    .update({
+      client_id: entry.clientId,
+      activity_id: entry.activityId,
+      date: entry.date,
+      start_time: entry.startTime,
+      end_time: entry.endTime,
+      duration: entry.duration,
+      description: entry.description,
+      billable: entry.billable,
+      invoiced: entry.invoiced,
+      entry_type: entry.entryType,
+      quantity: entry.quantity,
+      unit_price: entry.unitPrice,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', entry.id);
+  
+  if (error) {
+    console.error('Error updating time entry:', error.message);
+    toast({ 
+      title: "Error",
+      description: `Failed to update time entry: ${error.message}`,
+      variant: "destructive" 
+    });
+    return false;
+  }
+  
+  return true;
+};
+
+// Delete a time entry
+export const deleteTimeEntry = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('time_entries')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
+    console.error('Error deleting time entry:', error.message);
+    toast({ 
+      title: "Error",
+      description: `Failed to delete time entry: ${error.message}`,
+      variant: "destructive" 
+    });
+    return false;
+  }
+  
+  return true;
 };
