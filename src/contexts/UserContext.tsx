@@ -1,10 +1,9 @@
-
 import { createContext, useState, useEffect, useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
-// Define the types for user profile and context
 export interface UserProfile {
   id: string;
   email: string;
@@ -12,7 +11,6 @@ export interface UserProfile {
   avatarUrl: string;
   updated_at?: string;
   role: 'admin' | 'manager' | 'user';
-  // Add other profile fields here
 }
 
 interface AuthContextType {
@@ -30,10 +28,8 @@ interface AuthContextType {
   verifyOTP: (email: string, token: string, type: 'email') => Promise<void>;
 }
 
-// Create the context with a default value of undefined
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// AuthProvider component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -60,7 +56,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     loadSession();
 
-    // Listen for changes on auth state
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
@@ -79,7 +74,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  // Function to fetch user profile data
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -90,7 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (error) {
         console.error('Error fetching profile:', error);
-        // If profile doesn't exist yet, create a default one
         if (error.message.includes('contains 0 rows')) {
           await createDefaultProfile(userId);
           return;
@@ -111,7 +104,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Function to check if this is the first user in the system
   const isFirstUser = async (): Promise<boolean> => {
     try {
       const { count, error } = await supabase
@@ -130,26 +122,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Function to create a default profile for new users
   const createDefaultProfile = async (userId: string) => {
     try {
-      // Get the user's email
       const { data: userData } = await supabase.auth.getUser();
       const email = userData?.user?.email || '';
       
-      // Create a simple display name from email
       const displayName = email.split('@')[0] || 'User';
       
-      // Check if this is the first user (will be upgraded to admin by the trigger)
       const firstUser = await isFirstUser();
+      console.log('Is first user?', firstUser);
       
-      // Create default profile with appropriate role
       const defaultProfile = {
         id: userId,
         email,
         full_name: displayName,
         avatar_url: '',
-        role: 'user', // The database trigger will change this to 'admin' if it's the first user
+        role: 'user',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -165,7 +153,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
       
-      // Set the user profile in state
       setUserProfile({
         id: data.id,
         email: data.email,
@@ -177,16 +164,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       
       console.log('Created default profile for new user:', data);
       
-      // If this was the first user and they are now an admin, show a welcome message
       if (firstUser && data.role === 'admin') {
         console.log('First user created as admin!');
+        toast({
+          title: "Welcome, Administrator!",
+          description: "As the first user, you have been granted administrator privileges.",
+          variant: "default"
+        });
       }
     } catch (error) {
       console.error('Error creating default profile:', error);
     }
   };
 
-  // Sign up function
   const signUp = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -211,7 +201,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Sign in function
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -236,7 +225,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Sign out function
   const signOut = async () => {
     setIsLoading(true);
     try {
@@ -244,7 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setSession(null);
       setUser(null);
       setUserProfile(null);
-      navigate('/login'); // Redirect to login page after signing out using react-router
+      navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
     } finally {
@@ -252,7 +240,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Update profile function
   const updateProfile = async (updates: { fullName?: string; avatarUrl?: string }) => {
     setIsLoading(true);
     try {
@@ -271,7 +258,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         throw error;
       }
 
-      // Optimistically update the profile in the context
       setUserProfile((prevProfile) =>
         prevProfile ? { 
           ...prevProfile, 
@@ -306,7 +292,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       if (!user) throw new Error('No user to delete');
 
-      // First, delete the user's data from the profiles table
       const { error: profileError } = await supabase
         .from('profiles')
         .delete()
@@ -316,21 +301,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         throw profileError;
       }
 
-      // Then handle user deletion - note that direct user deletion might require admin rights
-      // so in a real app you might need a server-side function to do this
       try {
-        // This is simplified - in a real app you might need a server endpoint to delete the user
         await supabase.auth.admin.deleteUser(user.id);
       } catch (e) {
         console.warn('Could not directly delete user - this may require admin rights');
       }
 
-      // Clear the session and user data
       setSession(null);
       setUser(null);
       setUserProfile(null);
 
-      // Redirect to the home page or a "account deleted" page
       navigate('/');
     } catch (error: any) {
       console.error('Error deleting account:', error);
@@ -367,7 +347,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (error) throw error;
 
-      // Handle the response as needed
       console.log('OTP verification successful:', data);
       alert('OTP verification successful!');
     } catch (error: any) {
@@ -396,7 +375,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Custom hook to use the auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

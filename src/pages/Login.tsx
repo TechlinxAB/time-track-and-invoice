@@ -9,11 +9,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from "@/hooks/use-toast";
 
 const Login = () => {
-  const { user, signIn, signUp } = useAuth();
+  const { user, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // If user is already logged in, redirect to the dashboard
@@ -29,16 +28,8 @@ const Login = () => {
     try {
       console.log("Starting authentication process...");
       
-      let result;
-
-      if (isSignUp) {
-        console.log("Attempting signup...");
-        result = await signUp(email, password);
-      } else {
-        console.log("Attempting login...");
-        result = await signIn(email, password);
-      }
-
+      const result = await signIn(email, password);
+      
       console.log("Auth result:", result);
 
       if (!result.success) {
@@ -51,12 +42,6 @@ const Login = () => {
           title: "Authentication Failed",
           description: errorMsg,
           variant: "destructive"
-        });
-      } else if (isSignUp) {
-        toast({
-          title: "Account Created",
-          description: "Check your email to confirm your registration.",
-          variant: "default"
         });
       }
     } catch (error) {
@@ -78,11 +63,9 @@ const Login = () => {
     <div className="flex items-center justify-center min-h-screen bg-muted/20 p-4">
       <Card className="w-full max-w-md mx-auto">
         <CardHeader>
-          <CardTitle>{isSignUp ? "Create Account" : "Login"}</CardTitle>
+          <CardTitle>Login</CardTitle>
           <CardDescription>
-            {isSignUp
-              ? "Create a new account to get started"
-              : "Enter your credentials to access your account"}
+            Enter your credentials to access your account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -117,26 +100,13 @@ const Login = () => {
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
+        <CardFooter>
           <Button
             className="w-full bg-success hover:bg-success/90 text-success-foreground"
             onClick={handleSubmit}
             disabled={isLoading}
           >
-            {isLoading
-              ? "Processing..."
-              : isSignUp
-              ? "Create Account"
-              : "Sign In"}
-          </Button>
-          <Button
-            variant="link"
-            className="w-full"
-            onClick={() => setIsSignUp(!isSignUp)}
-          >
-            {isSignUp
-              ? "Already have an account? Sign in"
-              : "Don't have an account? Sign up"}
+            {isLoading ? "Signing in..." : "Sign In"}
           </Button>
         </CardFooter>
       </Card>

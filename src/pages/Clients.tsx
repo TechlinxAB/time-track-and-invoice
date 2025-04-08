@@ -1,205 +1,163 @@
-
-import { useState } from "react";
-import { useAppContext } from "@/contexts/AppContext";
-import { useAuth } from "@/contexts/AuthContext"; // Auth context
-import { Client } from "@/types";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { ClientsList } from "@/components/clients/ClientsList";
-import { ClientForm } from "@/components/clients/ClientForm";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogHeader,
   DialogTitle,
-  DialogHeader
 } from "@/components/ui/dialog";
-import { createNewClient, updateClient, deleteClient } from "@/lib/supabase";
-import { toast } from "sonner";
-import { NoData } from "@/components/common/NoData";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useProfile } from "@/contexts/UserContext";
-import { hasPermission } from "@/lib/permissions";
+import { Spinner } from "@/components/ui/spinner";
+import { UserPlus, Users } from "lucide-react";
+import { Client } from "@/types";
+import {
+  fetchClients,
+  createNewClient,
+  updateClient,
+  deleteClient,
+} from "@/lib/supabase";
+import { toast } from "@/hooks/use-toast";
+import ClientForm from "@/components/ClientForm";
+import ClientsList from "@/components/ClientsList";
+import NoData from "@/components/NoData";
+import { usePermissions } from "@/hooks/use-permissions";
 
 const Clients = () => {
-  const { clients, loadClients } = useAppContext();
-  const { user } = useAuth(); // Get the current authenticated user
-  const { profile } = useProfile(); // Get the user profile with role
-  const [open, setOpen] = useState(false);
-  const [editClient, setEditClient] = useState<Client | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Check if user has permission to modify clients
-  const canModifyClients = profile && hasPermission(profile.role, 'manage_clients');
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const { isManager } = usePermissions();
+
+  useEffect(() => {
+    fetchClientsData();
+  }, []);
+
+  const fetchClientsData = async () => {
+    setIsLoading(true);
+    const fetchedClients = await fetchClients();
+    setClients(fetchedClients);
+    setIsLoading(false);
+  };
 
   const handleAddClient = () => {
-    if (!canModifyClients) {
-      toast.error("You don't have permission to add clients");
-      return;
-    }
-    setEditClient(null);
-    setOpen(true);
+    setEditingClient(null);
+    setIsAddClientModalOpen(true);
   };
 
   const handleEditClient = (client: Client) => {
-    if (!canModifyClients) {
-      toast.error("You don't have permission to edit clients");
-      return;
-    }
-    setEditClient(client);
-    setOpen(true);
-  };
-
-  const handleCancel = () => {
-    setOpen(false);
-    setTimeout(() => {
-      setEditClient(null);
-    }, 300); // Wait for dialog animation to finish
-  };
-
-  const handleSubmit = async (formData: Omit<Client, "id">) => {
-    if (!canModifyClients) {
-      toast.error("You don't have permission to modify clients");
-      return;
-    }
-    
-    setIsSubmitting(true);
-    try {
-      // Check if user is authenticated
-      if (!user) {
-        toast.error("You must be logged in to perform this action");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Log authentication details for debugging
-      console.log("Current user:", user.id);
-      
-      if (editClient) {
-        const updatedClient = { ...editClient, ...formData };
-        console.log("Updating client:", updatedClient);
-        const success = await updateClient(updatedClient);
-        if (success) {
-          toast.success("Client updated successfully");
-          await loadClients(); // Ensure we reload clients
-          setOpen(false);
-        } else {
-          toast.error("Failed to update client");
-        }
-      } else {
-        console.log("Creating new client with user ID:", user.id);
-        const newClient = await createNewClient(formData);
-        if (newClient) {
-          toast.success("Client added successfully");
-          await loadClients(); // Ensure we reload clients
-          setOpen(false);
-        } else {
-          toast.error("Failed to add client");
-        }
-      }
-    } catch (error) {
-      console.error("Error creating/updating client:", error);
-      toast.error("An unexpected error occurred");
-    } finally {
-      setTimeout(() => {
-        setEditClient(null);
-        setIsSubmitting(false);
-      }, 300); // Clean up state after dialog closes
-    }
+    setEditingClient(client);
+    setIsAddClientModalOpen(true);
   };
 
   const handleDeleteClient = async (id: string) => {
-    if (!canModifyClients) {
-      toast.error("You don't have permission to delete clients");
-      return;
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this client?"
+    );
+    if (!confirmDelete) return;
+
+    const success = await deleteClient(id);
+    if (success) {
+      toast({
+        title: "Client Deleted",
+        description: "The client has been successfully deleted.",
+      });
+      fetchClientsData();
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to delete the client.",
+        variant: "destructive",
+      });
     }
-    
-    setIsDeleting(true);
+  };
+
+  const handleSubmitClient = async (clientData: Client) => {
+    setIsLoading(true);
     try {
-      if (!user) {
-        toast.error("You must be logged in to perform this action");
-        setIsDeleting(false);
-        return;
-      }
-      
-      const success = await deleteClient(id);
-      if (success) {
-        toast.success("Client deleted successfully");
-        await loadClients(); // Ensure we reload clients
+      let result;
+      if (editingClient) {
+        // Update existing client
+        result = await updateClient({ ...editingClient, ...clientData });
       } else {
-        toast.error("Failed to delete client");
+        // Create new client
+        result = await createNewClient(clientData);
       }
-    } catch (error) {
-      console.error("Error deleting client:", error);
-      toast.error("An unexpected error occurred");
+
+      if (result) {
+        toast({
+          title: editingClient ? "Client Updated" : "Client Added",
+          description: `Client ${
+            editingClient ? "updated" : "added"
+          } successfully.`,
+        });
+        setIsAddClientModalOpen(false);
+        fetchClientsData();
+      } else {
+        toast({
+          title: "Error",
+          description: `Failed to ${editingClient ? "update" : "add"} client.`,
+          variant: "destructive",
+        });
+      }
     } finally {
-      setIsDeleting(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Clients</h1>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          {canModifyClients && (
-            <Button onClick={handleAddClient}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Client
-            </Button>
-          )}
+          <h1 className="text-2xl font-bold text-gray-800">Clients</h1>
+          <p className="text-muted-foreground">
+            Manage your client information and projects
+          </p>
         </div>
+        {isManager && (
+          <Button onClick={handleAddClient} className="bg-success hover:bg-success/90">
+            <UserPlus size={16} className="mr-2" /> Add Client
+          </Button>
+        )}
       </div>
 
-      {clients && clients.length > 0 ? (
-        <ClientsList
-          clients={clients}
-          onEdit={canModifyClients ? handleEditClient : undefined}
-          onDelete={canModifyClients ? handleDeleteClient : undefined}
-          onAddNew={canModifyClients ? handleAddClient : undefined}
-          readOnly={!canModifyClients}
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Spinner size="lg" />
+        </div>
+      ) : clients.length === 0 ? (
+        <NoData
+          title="No clients found"
+          description="You haven't added any clients yet. Add your first client to get started!"
+          buttonText={isManager ? "Add Client" : undefined}
+          onButtonClick={isManager ? handleAddClient : undefined}
+          icon={Users}
         />
       ) : (
-        <NoData
-          message="No clients yet"
-          actionLabel={canModifyClients ? "Add your first client" : "No clients available"}
-          onAction={canModifyClients ? handleAddClient : undefined}
+        <ClientsList
+          clients={clients}
+          onEdit={handleEditClient}
+          onDelete={handleDeleteClient}
+          onAddNew={handleAddClient}
         />
       )}
 
-      <Dialog open={open} onOpenChange={(o) => {
-        // Only allow closing if not in submitting state
-        if (!isSubmitting || !o) {
-          setOpen(o);
-          if (!o) {
-            // Add delay to ensure animation completes before clearing state
-            setTimeout(() => {
-              setEditClient(null);
-            }, 300);
-          }
-        }
-      }}>
-        <DialogContent className="sm:max-w-[525px] max-h-[90vh]" onInteractOutside={(e) => {
-          // Prevent interaction outside while submitting
-          if (isSubmitting) {
-            e.preventDefault();
-          }
-        }}>
+      {/* Client form modal for adding/editing */}
+      <Dialog open={isAddClientModalOpen} onOpenChange={setIsAddClientModalOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editClient ? "Edit Client" : "Add Client"}</DialogTitle>
+            <DialogTitle>{editingClient ? "Edit Client" : "Add New Client"}</DialogTitle>
             <DialogDescription>
-              {editClient ? "Update client details" : "Add a new client to your workspace"}
+              {editingClient
+                ? "Update the client's information"
+                : "Fill in the details to add a new client"}
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[calc(90vh-180px)] overflow-y-auto pr-4">
-            <ClientForm
-              client={editClient}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              isSubmitting={isSubmitting}
-            />
-          </ScrollArea>
+          <ClientForm
+            initialValues={editingClient || undefined}
+            onSubmit={handleSubmitClient}
+            onCancel={() => setIsAddClientModalOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>
