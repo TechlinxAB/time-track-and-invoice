@@ -122,7 +122,7 @@ export interface SelectOption {
   label: string;
 }
 
-// Fixed DateRange interface for app context and invoicing
+// Modified DateRange interface that's compatible with react-day-picker
 export interface DateRange {
   from: Date | undefined;
   to: Date | undefined;

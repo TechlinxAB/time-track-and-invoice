@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -227,16 +226,46 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  // Handle loading state with retry button
+  // Handle loading state with single Back to Login button
   const LoadingScreen = () => {
     const navigate = useNavigate();
     
-    const handleRetry = () => {
-      loadProfile();
-    };
-    
     const handleGoToLogin = async () => {
-      await supabase.auth.signOut();
+      console.log("Signing out and clearing session data...");
+      
+      // Clear any stored data
+      try {
+        // Sign out from Supabase
+        await supabase.auth.signOut({ scope: 'local' });
+        
+        // Clear any API key settings from localStorage
+        localStorage.removeItem('supabase_anon_key');
+        
+        // Keep the reverse proxy settings
+        
+        // Clear any other auth-related items that might be in localStorage
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('auth') || key.includes('supabase') || key.includes('session'))) {
+            if (key !== 'use_reverse_proxy' && key !== 'reverse_proxy_path') {
+              keysToRemove.push(key);
+            }
+          }
+        }
+        
+        // Remove the collected keys
+        keysToRemove.forEach(key => {
+          console.log(`Removing localStorage item: ${key}`);
+          localStorage.removeItem(key);
+        });
+        
+        toast.success("Signed out successfully");
+      } catch (error) {
+        console.error("Error during sign out:", error);
+      }
+      
+      // Navigate to login page
       navigate('/login');
     };
     
@@ -254,18 +283,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             </div>
           )}
           
-          <div className="mt-6 flex flex-col gap-3">
-            <Button 
-              onClick={handleRetry} 
-              className="w-full"
-              variant="default"
-            >
-              Retry
-            </Button>
+          <div className="mt-6">
             <Button 
               onClick={handleGoToLogin} 
               className="w-full"
-              variant="outline"
+              variant="default"
             >
               Back to Login
             </Button>
