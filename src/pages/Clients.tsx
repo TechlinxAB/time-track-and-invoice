@@ -3,7 +3,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { Client } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Plus, Settings } from "lucide-react";
-import ClientsList from "@/components/clients/ClientsList";
+import { ClientsList } from "@/components/clients/ClientsList";
 import { ClientForm } from "@/components/clients/ClientForm";
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { createNewClient, updateClient, deleteClient } from "@/lib/supabase";
 import { toast } from "sonner";
-import NoData from "@/components/common/NoData";
+import { NoData } from "@/components/common/NoData";
 
 const Clients = () => {
   const { clients, loadClients } = useAppContext();
@@ -38,21 +38,19 @@ const Clients = () => {
   const handleSubmit = async (formData: Omit<Client, "id">) => {
     try {
       if (editClient) {
-        // Update existing client
         const updatedClient = { ...editClient, ...formData };
         const success = await updateClient(updatedClient);
         if (success) {
           toast.success("Client updated successfully");
-          loadClients(); // Refresh client list
+          loadClients();
         } else {
           toast.error("Failed to update client");
         }
       } else {
-        // Create new client
         const newClient = await createNewClient(formData);
         if (newClient) {
           toast.success("Client added successfully");
-          loadClients(); // Refresh client list
+          loadClients();
         } else {
           toast.error("Failed to add client");
         }
@@ -72,7 +70,7 @@ const Clients = () => {
       const success = await deleteClient(id);
       if (success) {
         toast.success("Client deleted successfully");
-        loadClients(); // Refresh client list
+        loadClients();
       } else {
         toast.error("Failed to delete client");
       }

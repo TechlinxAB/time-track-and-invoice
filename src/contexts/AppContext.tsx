@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   Client, 
@@ -10,8 +11,8 @@ import {
 import { 
   fetchClients, 
   createNewClient, 
-  updateClient, 
-  deleteClient,
+  updateClient as updateClientApi, 
+  deleteClient as deleteClientApi,
   fetchActivities,
   fetchTimeEntries,
   getTimeEntriesByDate,
@@ -35,6 +36,12 @@ interface AppContextType {
   loadTimeEntriesByDate: (date: string) => Promise<void>;
   loadTimeEntriesByDateRange: (startDate: string, endDate: string) => Promise<void>;
   loadInvoices: () => Promise<void>;
+  getClientById: (id: string) => Client | undefined;
+  getActivityById: (id: string) => Activity | undefined;
+  getTimeEntriesForDate: (date: string) => TimeEntry[];
+  addTimeEntry: (entry: Omit<TimeEntry, "id">) => void;
+  updateTimeEntry: (entry: TimeEntry) => void;
+  deleteTimeEntry: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -60,14 +67,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateClient = async (client: Client) => {
-    await updateClient(client);
+    await updateClientApi(client);
     setClients(prevClients =>
       prevClients.map(c => (c.id === client.id ? client : c))
     );
   };
 
   const deleteClient = async (id: string) => {
-    await deleteClient(id);
+    await deleteClientApi(id);
     setClients(prevClients => prevClients.filter(client => client.id !== id));
   };
 
@@ -93,6 +100,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loadInvoices = async () => {
     // Implement invoice loading logic here
+    // For now, this is just a placeholder
+  };
+
+  // New helper functions
+  const getClientById = (id: string): Client | undefined => {
+    return clients.find(client => client.id === id);
+  };
+
+  const getActivityById = (id: string): Activity | undefined => {
+    return activities.find(activity => activity.id === id);
+  };
+
+  const getTimeEntriesForDate = (date: string): TimeEntry[] => {
+    return timeEntries.filter(entry => entry.date === date);
+  };
+
+  const addTimeEntry = (entry: Omit<TimeEntry, "id">) => {
+    // In a real application, this would call an API
+    // For now, we'll just add it locally with a generated ID
+    const newEntry: TimeEntry = {
+      ...entry,
+      id: `temp-${Date.now()}`
+    };
+    setTimeEntries(prev => [...prev, newEntry]);
+  };
+
+  const updateTimeEntry = (entry: TimeEntry) => {
+    setTimeEntries(prev => 
+      prev.map(e => e.id === entry.id ? entry : e)
+    );
+  };
+
+  const deleteTimeEntry = (id: string) => {
+    setTimeEntries(prev => prev.filter(entry => entry.id !== id));
   };
 
   useEffect(() => {
@@ -119,6 +160,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadTimeEntriesByDate,
     loadTimeEntriesByDateRange,
     loadInvoices,
+    getClientById,
+    getActivityById,
+    getTimeEntriesForDate,
+    addTimeEntry,
+    updateTimeEntry,
+    deleteTimeEntry,
   };
 
   return (
