@@ -10,7 +10,8 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogTitle
+  DialogTitle,
+  DialogHeader
 } from "@/components/ui/dialog";
 import { createNewClient, updateClient, deleteClient } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ const Clients = () => {
         if (success) {
           toast.success("Client updated successfully");
           loadClients();
+          setOpen(false);
         } else {
           toast.error("Failed to update client");
         }
@@ -54,6 +56,7 @@ const Clients = () => {
         if (newClient) {
           toast.success("Client added successfully");
           loadClients();
+          setOpen(false);
         } else {
           toast.error("Failed to add client");
         }
@@ -62,7 +65,6 @@ const Clients = () => {
       console.error("Error creating/updating client:", error);
       toast.error("An unexpected error occurred");
     } finally {
-      setOpen(false);
       setEditClient(null);
     }
   };
@@ -114,11 +116,13 @@ const Clients = () => {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[525px] max-h-[90vh]">
-          <DialogTitle>{editClient ? "Edit Client" : "Add Client"}</DialogTitle>
-          <DialogDescription>
-            {editClient ? "Update client details" : "Add a new client to your workspace"}
-          </DialogDescription>
-          <ScrollArea className="max-h-[calc(90vh-120px)] overflow-y-auto pr-4">
+          <DialogHeader>
+            <DialogTitle>{editClient ? "Edit Client" : "Add Client"}</DialogTitle>
+            <DialogDescription>
+              {editClient ? "Update client details" : "Add a new client to your workspace"}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[calc(90vh-180px)] overflow-y-auto pr-4">
             <ClientForm
               client={editClient}
               onSubmit={handleSubmit}
