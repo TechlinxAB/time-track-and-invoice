@@ -24,4 +24,3 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Set proper ownership and permissions for the function
 COMMENT ON FUNCTION public.get_user_count() IS 'Counts users in the system, for first-user detection';
-

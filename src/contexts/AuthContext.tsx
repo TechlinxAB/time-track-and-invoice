@@ -106,14 +106,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('Attempting to sign up user:', email);
       console.log('Using Supabase URL:', (supabase as any).supabaseUrl);
       
-      // Remove email confirmation by setting email_confirm: true
+      // Auto-confirm email by setting data.email_confirmed: true
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: null,
           data: {
-            email_confirmed: true
+            email_confirmed: true // This tells Supabase to skip email verification
           }
         }
       });

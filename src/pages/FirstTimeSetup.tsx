@@ -28,6 +28,7 @@ const FirstTimeSetup = () => {
       // First try using the RPC function
       let firstUserCheck = true;
       try {
+        console.log("Attempting to check if first user via RPC...");
         const { data: countData, error: countError } = await supabase.rpc('get_user_count');
         
         if (countError) {
@@ -60,24 +61,32 @@ const FirstTimeSetup = () => {
         return;
       }
 
-      // Sign up the new administrator
+      console.log("Creating first admin user...");
+      
+      // Sign up the new administrator - IMPORTANT: Disable email confirmation
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
+          // Skip email verification by setting emailRedirectTo to null and data.email_confirmed=true
+          emailRedirectTo: null,  
           data: {
             full_name: fullName,
-            is_admin_setup: true
+            is_admin_setup: true,
+            email_confirmed: true  // This signals that email is already confirmed
           }
         }
       });
 
       if (signUpError) {
+        console.error("Sign up error:", signUpError);
         throw signUpError;
       }
 
       // Create the profile with admin role
       if (authData.user) {
+        console.log("User created, creating profile with admin role...");
+        
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
@@ -91,6 +100,7 @@ const FirstTimeSetup = () => {
           });
 
         if (profileError) {
+          console.error("Profile creation error:", profileError);
           throw profileError;
         }
 
@@ -98,7 +108,7 @@ const FirstTimeSetup = () => {
         toast({
           title: "Setup Complete!",
           description: "Administrator account created successfully. You can now log in.",
-          variant: "default" // Changed from "success" to "default"
+          variant: "default"
         });
         
         setIsCompleted(true);

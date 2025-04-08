@@ -24,7 +24,36 @@ const Login = () => {
     // Check if this is the first time setup
     const checkFirstTimeSetup = async () => {
       try {
-        // First try using the RPC function
+        console.log("Checking for first time setup...");
+        
+        // Check the profiles table directly first as it's more reliable
+        try {
+          const { count, error: profileError } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true });
+          
+          if (!profileError) {
+            if (count === 0) {
+              console.log("First time setup needed - no profiles found");
+              setIsFirstTime(true);
+              navigate("/setup");
+              return;
+            }
+            
+            // If we have profiles, no need to check the RPC
+            console.log("Profiles found, no first-time setup needed");
+            setIsFirstTime(false);
+            setIsFirstTimeCheck(false);
+            return;
+          }
+          
+          console.warn("Error checking profiles table:", profileError);
+          // If error checking profiles, try the RPC
+        } catch (err) {
+          console.warn("Error checking profiles:", err);
+        }
+        
+        // Fall back to RPC if needed
         try {
           const { data, error } = await supabase.rpc('get_user_count');
           
@@ -34,21 +63,16 @@ const Login = () => {
             navigate("/setup");
             return;
           }
+          
+          if (!error) {
+            console.log(`User count: ${data}, no first-time setup needed`);
+          }
         } catch (err) {
           console.warn("Error using get_user_count RPC:", err);
-          // Fall back to checking profiles if RPC fails
         }
-
-        // Fall back to checking profiles table directly
-        const { count, error: profileError } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
         
-        if (!profileError && count === 0) {
-          console.log("First time setup needed - no profiles found");
-          setIsFirstTime(true);
-          navigate("/setup");
-        }
+        // If we get here, assume not first time
+        setIsFirstTime(false);
       } catch (e) {
         console.error("Error checking first time setup:", e);
       } finally {
