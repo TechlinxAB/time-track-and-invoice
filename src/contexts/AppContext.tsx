@@ -1,11 +1,9 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   Client, 
   Activity, 
   TimeEntry, 
   Invoice, 
-  InvoiceItem,
   UserProfile
 } from '@/types';
 import { 
@@ -103,7 +101,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // For now, this is just a placeholder
   };
 
-  // New helper functions
   const getClientById = (id: string): Client | undefined => {
     return clients.find(client => client.id === id);
   };

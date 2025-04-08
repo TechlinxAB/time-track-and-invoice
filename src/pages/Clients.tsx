@@ -1,14 +1,14 @@
+
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { Client } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings } from "lucide-react";
+import { Plus } from "lucide-react";
 import { ClientsList } from "@/components/clients/ClientsList";
 import { ClientForm } from "@/components/clients/ClientForm";
 import {
   Dialog,
   DialogContent,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { createNewClient, updateClient, deleteClient } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -99,12 +99,13 @@ const Clients = () => {
           clients={clients}
           onEdit={handleEditClient}
           onDelete={handleDeleteClient}
-          isDeleting={isDeleting}
+          onAddNew={handleAddClient}
         />
       ) : (
         <NoData
-          title="No clients yet"
-          description="Add your first client to get started."
+          message="No clients yet"
+          actionLabel="Add your first client"
+          onAction={handleAddClient}
         />
       )}
 

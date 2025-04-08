@@ -13,7 +13,7 @@ import Login from "./pages/Login";
 import Index from "./pages/Index";
 import { AppProvider } from "./contexts/AppContext";
 import { AuthProvider } from "./contexts/AuthContext";
-import { UserProvider } from "./contexts/UserContext";
+import { AuthProvider as UserProvider } from "./contexts/UserContext";
 import { useAuth } from "./contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
