@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import {
@@ -62,7 +61,6 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
     },
   });
 
-  // Watch for activity changes to update activity type
   const selectedActivityId = form.watch("activityId");
   useEffect(() => {
     if (selectedActivityId) {
@@ -73,19 +71,15 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
     }
   }, [selectedActivityId, activities]);
 
-  // Ensure component cleans up on unmount
   useEffect(() => {
     return () => {
       document.body.style.pointerEvents = '';
     };
   }, []);
 
-  // Safe close handler to prevent state issues
   const handleClose = () => {
-    // Prevent closing during submission
     if (isSubmitting) return;
     
-    // Reset form and call parent close handler with a slight delay
     form.reset();
     
     setTimeout(() => {
@@ -97,8 +91,9 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
     try {
       setIsSubmitting(true);
       
-      // Calculate duration for better UI feedback
       const duration = calculateDuration(data.startTime, data.endTime);
+      
+      const selectedActivity = activities.find(a => a.id === data.activityId);
       
       const timeEntryData = {
         clientId: data.clientId,
@@ -109,16 +104,14 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
         date: formatDate(date),
         duration,
         billable: true,
-        invoiced: false
+        invoiced: false,
+        entryType: selectedActivity?.type || "service"
       };
       
-      // Add time entry
       addTimeEntry(timeEntryData);
       
-      // Show success message and close form
       toast.success("Time entry added successfully");
       
-      // Delay successful add callback to ensure UI is responsive
       setTimeout(() => {
         onSuccessfulAdd();
       }, 100);
@@ -148,7 +141,6 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Client Selection */}
             <FormField
               control={form.control}
               name="clientId"
@@ -178,7 +170,6 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
               )}
             />
 
-            {/* Activity Selection */}
             <FormField
               control={form.control}
               name="activityId"
@@ -213,7 +204,6 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Time fields - Now using our enhanced TimeInput component */}
             <FormField
               control={form.control}
               name="startTime"
@@ -253,7 +243,6 @@ const NewTimeEntry = ({ date, onClose, onSuccessfulAdd }: NewTimeEntryProps) => 
             />
           </div>
 
-          {/* Description */}
           <FormField
             control={form.control}
             name="description"

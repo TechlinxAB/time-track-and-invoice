@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -21,7 +20,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [role, setRole] = useState<UserRole>("user");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user profile from Supabase
   const loadProfile = async () => {
     try {
       setIsLoading(true);
@@ -50,7 +48,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      // Fetch profile data from the profiles table
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -60,7 +57,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (profileError) {
         console.error("Profile error:", profileError);
         
-        // If the profile doesn't exist, create a default one
         if (profileError.code === 'PGRST116') {
           const defaultProfile: Partial<UserProfile> = {
             id: userData.user.id,
@@ -131,15 +127,15 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     switch (permission) {
       case 'manage_clients':
-        return role === 'admin' || role === 'manager';
+        return ['admin', 'manager'].includes(role);
       case 'create_time_entries':
-        return role === 'admin' || role === 'manager' || role === 'user';
+        return ['admin', 'manager', 'user'].includes(role);
       case 'view_reports':
-        return role === 'admin' || role === 'manager';
+        return ['admin', 'manager'].includes(role);
       case 'manage_invoices':
-        return role === 'admin' || role === 'manager';
+        return ['admin', 'manager'].includes(role);
       case 'manage_activities':
-        return role === 'admin' || role === 'manager';
+        return ['admin', 'manager'].includes(role);
       case 'manage_users':
         return role === 'admin';
       case 'manage_settings':
@@ -149,11 +145,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Load profile on initial render
   useEffect(() => {
     loadProfile();
     
-    // Subscribe to auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_IN') {
         await loadProfile();

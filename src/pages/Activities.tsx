@@ -11,6 +11,7 @@ import { Plus, Edit, Trash2, MoreHorizontal } from "lucide-react";
 import { Activity } from "@/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatCurrency } from "@/lib/date-utils";
+
 const Activities = () => {
   const {
     activities,
@@ -25,8 +26,12 @@ const Activities = () => {
     hourlyRate: 0,
     isFixedPrice: false,
     fixedPrice: 0,
-    accountNumber: ""
+    accountNumber: "",
+    type: "service" as const,
+    vatRate: 0,
+    articleNumber: ""
   });
+
   const handleOpenDialog = (activity?: Activity) => {
     if (activity) {
       setEditingActivity(activity);
@@ -35,7 +40,10 @@ const Activities = () => {
         hourlyRate: activity.hourlyRate,
         isFixedPrice: activity.isFixedPrice,
         fixedPrice: activity.fixedPrice || 0,
-        accountNumber: activity.accountNumber || ""
+        accountNumber: activity.accountNumber || "",
+        type: activity.type,
+        vatRate: activity.vatRate || 0,
+        articleNumber: activity.articleNumber || ""
       });
     } else {
       setEditingActivity(null);
@@ -44,11 +52,15 @@ const Activities = () => {
         hourlyRate: 0,
         isFixedPrice: false,
         fixedPrice: 0,
-        accountNumber: ""
+        accountNumber: "",
+        type: "service",
+        vatRate: 0,
+        articleNumber: ""
       });
     }
     setDialogOpen(true);
   };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingActivity) {
@@ -61,6 +73,7 @@ const Activities = () => {
     }
     setDialogOpen(false);
   };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const {
       name,
@@ -79,15 +92,18 @@ const Activities = () => {
       }));
     }
   };
+
   const handleSwitchChange = (checked: boolean) => {
     setFormData(prev => ({
       ...prev,
       isFixedPrice: checked
     }));
   };
+
   const handleDelete = (id: string) => {
     deleteActivity(id);
   };
+
   return <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Activities</h1>
@@ -199,4 +215,5 @@ const Activities = () => {
       </Dialog>
     </div>;
 };
+
 export default Activities;

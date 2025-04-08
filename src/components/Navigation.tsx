@@ -7,7 +7,7 @@ import {
   List, Calendar, User
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser } from "@/contexts/UserContext";
+import { useUserContext } from "@/contexts/UserContext";
 
 interface NavItemProps {
   to: string;
@@ -60,7 +60,7 @@ const navigationItems = [
 
 const Navigation = memo(({ collapsed }: NavigationProps) => {
   const { pathname } = useLocation();
-  const { profile } = useUser();
+  const { user } = useUserContext();
   
   // Get initials for avatar fallback
   const getInitials = (name: string) => {
@@ -78,17 +78,17 @@ const Navigation = memo(({ collapsed }: NavigationProps) => {
         {!collapsed && (
           <NavLink to="/account" className="flex items-center gap-3 mb-2 px-3 hover:bg-muted/30 py-2 rounded-lg transition-all duration-200">
             <Avatar className="h-9 w-9 border border-border">
-              {profile?.avatar ? (
-                <AvatarImage src={profile.avatar} alt={profile.displayName} />
+              {user?.avatar ? (
+                <AvatarImage src={user.avatar} alt={user.displayName} />
               ) : (
                 <AvatarFallback className="bg-success/20 text-success font-medium">
-                  {profile ? getInitials(profile.displayName) : 'U'}
+                  {user ? getInitials(user.displayName) : 'U'}
                 </AvatarFallback>
               )}
             </Avatar>
             <div className="flex flex-col">
-              <span className="text-sm font-medium">{profile?.displayName || "User"}</span>
-              <span className="text-xs text-muted-foreground">{profile?.role || "Loading..."}</span>
+              <span className="text-sm font-medium">{user?.displayName || "User"}</span>
+              <span className="text-xs text-muted-foreground">{user?.role || "Loading..."}</span>
             </div>
           </NavLink>
         )}

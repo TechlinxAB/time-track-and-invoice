@@ -35,18 +35,21 @@ export const mockActivities: Activity[] = [
     name: "Web Development",
     hourlyRate: 1200,
     isFixedPrice: false,
+    type: "service", // Added required type property
   },
   {
     id: uuidv4(),
     name: "UI/UX Design",
     hourlyRate: 1400,
     isFixedPrice: false,
+    type: "service", // Added required type property
   },
   {
     id: uuidv4(),
     name: "Server Maintenance",
     hourlyRate: 1100,
     isFixedPrice: false,
+    type: "service", // Added required type property
   },
   {
     id: uuidv4(),
@@ -54,6 +57,7 @@ export const mockActivities: Activity[] = [
     hourlyRate: 0,
     isFixedPrice: true,
     fixedPrice: 45000,
+    type: "service", // Added required type property
   },
 ];
 
@@ -105,6 +109,7 @@ const generateTimeEntries = (): TimeEntry[] => {
         duration: durationMinutes,
         billable: true,
         invoiced: false,
+        entryType: "service", // Added required entryType property
       });
     }
   }
