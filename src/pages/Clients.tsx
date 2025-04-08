@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
-import { useAuth } from "@/contexts/AuthContext"; // Add Auth context
+import { useAuth } from "@/contexts/AuthContext"; // Auth context
 import { Client } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -18,21 +18,35 @@ import { createNewClient, updateClient, deleteClient } from "@/lib/supabase";
 import { toast } from "sonner";
 import { NoData } from "@/components/common/NoData";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useProfile } from "@/contexts/UserContext";
+import { hasPermission } from "@/lib/permissions";
 
 const Clients = () => {
   const { clients, loadClients } = useAppContext();
   const { user } = useAuth(); // Get the current authenticated user
+  const { profile } = useProfile(); // Get the user profile with role
   const [open, setOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Check if user has permission to modify clients
+  const canModifyClients = profile && hasPermission(profile.role, 'manage_clients');
 
   const handleAddClient = () => {
+    if (!canModifyClients) {
+      toast.error("You don't have permission to add clients");
+      return;
+    }
     setEditClient(null);
     setOpen(true);
   };
 
   const handleEditClient = (client: Client) => {
+    if (!canModifyClients) {
+      toast.error("You don't have permission to edit clients");
+      return;
+    }
     setEditClient(client);
     setOpen(true);
   };
@@ -45,6 +59,11 @@ const Clients = () => {
   };
 
   const handleSubmit = async (formData: Omit<Client, "id">) => {
+    if (!canModifyClients) {
+      toast.error("You don't have permission to modify clients");
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       // Check if user is authenticated
@@ -91,6 +110,11 @@ const Clients = () => {
   };
 
   const handleDeleteClient = async (id: string) => {
+    if (!canModifyClients) {
+      toast.error("You don't have permission to delete clients");
+      return;
+    }
+    
     setIsDeleting(true);
     try {
       if (!user) {
@@ -119,25 +143,28 @@ const Clients = () => {
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Clients</h1>
         <div>
-          <Button onClick={handleAddClient}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Client
-          </Button>
+          {canModifyClients && (
+            <Button onClick={handleAddClient}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Client
+            </Button>
+          )}
         </div>
       </div>
 
       {clients && clients.length > 0 ? (
         <ClientsList
           clients={clients}
-          onEdit={handleEditClient}
-          onDelete={handleDeleteClient}
-          onAddNew={handleAddClient}
+          onEdit={canModifyClients ? handleEditClient : undefined}
+          onDelete={canModifyClients ? handleDeleteClient : undefined}
+          onAddNew={canModifyClients ? handleAddClient : undefined}
+          readOnly={!canModifyClients}
         />
       ) : (
         <NoData
           message="No clients yet"
-          actionLabel="Add your first client"
-          onAction={handleAddClient}
+          actionLabel={canModifyClients ? "Add your first client" : "No clients available"}
+          onAction={canModifyClients ? handleAddClient : undefined}
         />
       )}
 

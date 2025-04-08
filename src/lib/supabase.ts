@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/hooks/use-toast';
 import { Client, Activity, TimeEntry, UserProfile, Invoice, InvoiceItem, ConnectionTestResult, ConnectionDetails } from '@/types';
@@ -135,6 +136,37 @@ export const fetchUserProfile = async (): Promise<UserProfile | null> => {
   
   if (profileError) {
     console.error('Error fetching profile:', profileError.message);
+    
+    // If profile doesn't exist, create one with default values
+    if (profileError.message.includes('contains 0 rows')) {
+      const defaultProfile = {
+        id: userData.user.id,
+        display_name: userData.user.email?.split('@')[0] || 'User',
+        role: 'user' as const, // Default role is 'user'
+        created_at: new Date().toISOString()
+      };
+      
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert(defaultProfile);
+        
+      if (createError) {
+        console.error('Error creating profile:', createError.message);
+        return null;
+      }
+      
+      return {
+        id: userData.user.id,
+        email: userData.user.email || '',
+        displayName: defaultProfile.display_name,
+        role: defaultProfile.role,
+        created_at: defaultProfile.created_at,
+        updated_at: defaultProfile.created_at,
+        preferences: {},
+        settings: {}
+      };
+    }
+    
     return null;
   }
   
@@ -423,10 +455,23 @@ export const deleteClient = async (id: string): Promise<boolean> => {
 
 // Similar CRUD functions for activities
 export const fetchActivities = async (): Promise<Activity[]> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to view activities`,
+      variant: "destructive" 
+    });
+    return [];
+  }
+  
   const { data, error } = await supabase
     .from('activities')
     .select('*')
-    .eq('user_id', supabase.auth.user?.id)  // Filter by the current user's ID
+    .eq('user_id', userData.user.id)  // Filter by the current user's ID
     .order('name', { ascending: true });
   
   if (error) {
@@ -456,10 +501,23 @@ export const fetchActivities = async (): Promise<Activity[]> => {
 
 // CRUD functions for time entries
 export const fetchTimeEntries = async (): Promise<TimeEntry[]> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to view time entries`,
+      variant: "destructive" 
+    });
+    return [];
+  }
+  
   const { data, error } = await supabase
     .from('time_entries')
     .select('*')
-    .eq('user_id', supabase.auth.user?.id)
+    .eq('user_id', userData.user.id)
     .order('date', { ascending: false });
   
   if (error) {
@@ -490,10 +548,23 @@ export const fetchTimeEntries = async (): Promise<TimeEntry[]> => {
 };
 
 export const getTimeEntriesByDate = async (date: string): Promise<TimeEntry[]> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to view time entries`,
+      variant: "destructive" 
+    });
+    return [];
+  }
+  
   const { data, error } = await supabase
     .from('time_entries')
     .select('*')
-    .eq('user_id', supabase.auth.user?.id)
+    .eq('user_id', userData.user.id)
     .eq('date', date)
     .order('start_time', { ascending: true });
   
@@ -520,10 +591,23 @@ export const getTimeEntriesByDate = async (date: string): Promise<TimeEntry[]> =
 };
 
 export const getTimeEntriesByDateRange = async (startDate: string, endDate: string): Promise<TimeEntry[]> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to view time entries`,
+      variant: "destructive" 
+    });
+    return [];
+  }
+  
   const { data, error } = await supabase
     .from('time_entries')
     .select('*')
-    .eq('user_id', supabase.auth.user?.id)
+    .eq('user_id', userData.user.id)
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: true })
@@ -553,10 +637,23 @@ export const getTimeEntriesByDateRange = async (startDate: string, endDate: stri
 
 // Create a time entry
 export const createTimeEntry = async (entry: Omit<TimeEntry, "id">): Promise<TimeEntry | null> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to create time entries`,
+      variant: "destructive" 
+    });
+    return null;
+  }
+  
   const { data, error } = await supabase
     .from('time_entries')
     .insert({
-      user_id: supabase.auth.user?.id,  // Set the user_id explicitly
+      user_id: userData.user.id,  // Set the user_id explicitly
       client_id: entry.clientId,
       activity_id: entry.activityId,
       date: entry.date,
@@ -604,6 +701,19 @@ export const createTimeEntry = async (entry: Omit<TimeEntry, "id">): Promise<Tim
 
 // Update a time entry
 export const updateTimeEntry = async (entry: TimeEntry): Promise<boolean> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to update time entries`,
+      variant: "destructive" 
+    });
+    return false;
+  }
+  
   const { error } = await supabase
     .from('time_entries')
     .update({
@@ -622,7 +732,7 @@ export const updateTimeEntry = async (entry: TimeEntry): Promise<boolean> => {
       updated_at: new Date().toISOString()
     })
     .eq('id', entry.id)
-    .eq('user_id', supabase.auth.user?.id);  // Ensure we're only updating the user's own time entries
+    .eq('user_id', userData.user.id);  // Ensure we're only updating the user's own time entries
   
   if (error) {
     console.error('Error updating time entry:', error.message);
@@ -640,11 +750,24 @@ export const updateTimeEntry = async (entry: TimeEntry): Promise<boolean> => {
 
 // Delete a time entry
 export const deleteTimeEntry = async (id: string): Promise<boolean> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to delete time entries`,
+      variant: "destructive" 
+    });
+    return false;
+  }
+  
   const { error } = await supabase
     .from('time_entries')
     .delete()
     .eq('id', id)
-    .eq('user_id', supabase.auth.user?.id);  // Ensure we're only deleting the user's own time entries
+    .eq('user_id', userData.user.id);  // Ensure we're only deleting the user's own time entries
   
   if (error) {
     console.error('Error deleting time entry:', error.message);

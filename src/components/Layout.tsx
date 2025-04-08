@@ -6,12 +6,15 @@ import { ChevronLeft, ChevronRight, LogOut, Search } from "lucide-react";
 import Navigation from "./Navigation";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/UserContext";
+import { getRoleName } from "@/lib/permissions";
 import { toast } from "@/hooks/use-toast";
 
 const Layout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { signOut } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
   
   // Extract the page name from the current path
@@ -47,6 +50,9 @@ const Layout = () => {
       });
     }
   };
+  
+  // Get user's role display name
+  const roleName = profile?.role ? getRoleName(profile.role) : '';
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -108,8 +114,15 @@ const Layout = () => {
                 className="pl-8 h-9 bg-muted/30 border-muted focus-visible:ring-success"
               />
             </div>
-            <div className="h-9 w-9 rounded-full bg-success/20 flex items-center justify-center text-success font-medium">
-              TT
+            <div className="flex items-center gap-2">
+              {profile && profile.role && (
+                <span className="text-xs px-2 py-1 bg-success/10 text-success rounded-full">
+                  {roleName}
+                </span>
+              )}
+              <div className="h-9 w-9 rounded-full bg-success/20 flex items-center justify-center text-success font-medium">
+                {profile?.displayName?.charAt(0).toUpperCase() || "U"}
+              </div>
             </div>
           </div>
         </div>

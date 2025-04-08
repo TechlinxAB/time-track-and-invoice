@@ -68,6 +68,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         if (session?.user) {
           await fetchUserProfile(session.user.id);
+        } else {
+          setUserProfile(null);
         }
       }
     );
@@ -88,12 +90,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (error) {
         console.error('Error fetching profile:', error);
+        // If profile doesn't exist yet, create a default one
+        if (error.message.includes('contains 0 rows')) {
+          await createDefaultProfile(userId);
+          return;
+        }
         return;
       }
 
       setUserProfile(data as UserProfile);
     } catch (error) {
       console.error('Error fetching profile:', error);
+    }
+  };
+
+  // Function to create a default profile for new users
+  const createDefaultProfile = async (userId: string) => {
+    try {
+      // Get the user's email
+      const { data: userData } = await supabase.auth.getUser();
+      const email = userData?.user?.email || '';
+      
+      // Create a simple display name from email
+      const displayName = email.split('@')[0] || 'User';
+      
+      // Create default profile with 'user' role
+      const defaultProfile = {
+        id: userId,
+        email,
+        full_name: displayName,
+        avatar_url: '',
+        role: 'user',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert(defaultProfile)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating default profile:', error);
+        return;
+      }
+      
+      // Set the user profile in state
+      setUserProfile({
+        id: data.id,
+        email: data.email,
+        fullName: data.full_name,
+        avatarUrl: data.avatar_url || '',
+        role: data.role,
+        updated_at: data.updated_at
+      });
+      
+      console.log('Created default profile for new user:', data);
+    } catch (error) {
+      console.error('Error creating default profile:', error);
     }
   };
 
@@ -171,7 +226,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const { error } = await supabase
         .from('profiles')
-        .update(updates)
+        .update({
+          full_name: updates.fullName,
+          avatar_url: updates.avatarUrl,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', user.id);
 
       if (error) {
@@ -180,7 +239,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Optimistically update the profile in the context
       setUserProfile((prevProfile) =>
-        prevProfile ? { ...prevProfile, ...updates } : null
+        prevProfile ? { 
+          ...prevProfile, 
+          fullName: updates.fullName || prevProfile.fullName,
+          avatarUrl: updates.avatarUrl || prevProfile.avatarUrl
+        } : null
       );
     } catch (error: any) {
       console.error('Error updating profile:', error);

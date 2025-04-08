@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/UserContext";
+import { hasPermission } from "@/lib/permissions";
 
 interface NavItemProps {
   to: string;
@@ -49,13 +50,20 @@ interface NavigationProps {
   collapsed: boolean;
 }
 
-const navigationItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/time-tracking", icon: Clock, label: "Time Tracking" },
-  { to: "/invoicing", icon: FileText, label: "Invoicing" },
-  { to: "/clients", icon: Users, label: "Clients" },
-  { to: "/activities", icon: List, label: "Activities" },
-  { to: "/settings", icon: SettingsIcon, label: "Settings" },
+interface NavigationItem {
+  to: string;
+  icon: React.ElementType;
+  label: string;
+  requiredPermission: string;
+}
+
+const navigationItems: NavigationItem[] = [
+  { to: "/", icon: LayoutDashboard, label: "Dashboard", requiredPermission: "track_time" },
+  { to: "/time-tracking", icon: Clock, label: "Time Tracking", requiredPermission: "track_time" },
+  { to: "/invoicing", icon: FileText, label: "Invoicing", requiredPermission: "manage_invoices" },
+  { to: "/clients", icon: Users, label: "Clients", requiredPermission: "manage_clients" },
+  { to: "/activities", icon: List, label: "Activities", requiredPermission: "manage_activities" },
+  { to: "/settings", icon: SettingsIcon, label: "Settings", requiredPermission: "manage_settings" },
 ];
 
 const Navigation = memo(({ collapsed }: NavigationProps) => {
@@ -71,6 +79,11 @@ const Navigation = memo(({ collapsed }: NavigationProps) => {
       .toUpperCase()
       .substring(0, 2);
   };
+
+  // Filter navigation items based on user permissions
+  const filteredNavItems = navigationItems.filter(item => 
+    userProfile && hasPermission(userProfile.role, item.requiredPermission as any)
+  );
 
   return (
     <nav className="flex-1 py-4 overflow-y-auto">
@@ -88,7 +101,7 @@ const Navigation = memo(({ collapsed }: NavigationProps) => {
             </Avatar>
             <div className="flex flex-col">
               <span className="text-sm font-medium">{userProfile?.fullName || "User"}</span>
-              <span className="text-xs text-muted-foreground">{userProfile?.role || "Loading..."}</span>
+              <span className="text-xs text-muted-foreground">{userProfile?.role ? `${userProfile.role.charAt(0).toUpperCase()}${userProfile.role.slice(1)}` : "Loading..."}</span>
             </div>
           </NavLink>
         )}
@@ -100,7 +113,7 @@ const Navigation = memo(({ collapsed }: NavigationProps) => {
           </h2>
         )}
         <ul className="space-y-1">
-          {navigationItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <NavItem
               key={item.to}
               to={item.to}
