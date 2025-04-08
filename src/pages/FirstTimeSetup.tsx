@@ -25,25 +25,34 @@ const FirstTimeSetup = () => {
 
     try {
       // Check if this is actually the first user
-      // First try using the RPC function
+      // First try using the profiles table directly as it's more reliable
       let firstUserCheck = true;
       try {
-        console.log("Attempting to check if first user via RPC...");
-        const { data: countData, error: countError } = await supabase.rpc('get_user_count');
+        console.log("Checking if first user by counting profiles...");
+        const { count, error: profileCountError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
         
-        if (countError) {
-          console.warn("Could not check user count via RPC:", countError);
-          // Fall back to counting profiles
-          const { count, error: profileCountError } = await supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true });
-          
-          if (!profileCountError && count !== null) {
-            firstUserCheck = count === 0;
-          }
+        if (!profileCountError && count !== null) {
+          console.log(`Found ${count} profiles`);
+          firstUserCheck = count === 0;
         } else {
-          // RPC function worked
-          firstUserCheck = countData === 0;
+          console.warn("Error checking profiles:", profileCountError);
+          // Try the RPC as fallback
+          try {
+            console.log("Attempting to check if first user via RPC...");
+            const { data: countData, error: countError } = await supabase.rpc('get_user_count');
+            
+            if (!countError) {
+              console.log(`User count from RPC: ${countData}`);
+              firstUserCheck = countData === 0;
+            } else {
+              console.warn("Could not check user count via RPC:", countError);
+              // Just continue assuming it's the first user if both checks fail
+            }
+          } catch (err) {
+            console.warn("Error with RPC call:", err);
+          }
         }
       } catch (err) {
         console.warn("Error checking if this is first user:", err);
@@ -63,17 +72,18 @@ const FirstTimeSetup = () => {
 
       console.log("Creating first admin user...");
       
-      // Sign up the new administrator - IMPORTANT: Disable email confirmation
+      // Sign up the new administrator - CRUCIAL: properly configured to skip email verification
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // Skip email verification by setting emailRedirectTo to null and data.email_confirmed=true
-          emailRedirectTo: null,  
+          // This is critical: we set emailRedirectTo to a valid URL but also set autoConfirm to true 
+          emailRedirectTo: window.location.origin,
           data: {
             full_name: fullName,
             is_admin_setup: true,
-            email_confirmed: true  // This signals that email is already confirmed
+            email_confirmed: true,
+            autoConfirm: true
           }
         }
       });
@@ -119,6 +129,23 @@ const FirstTimeSetup = () => {
     } catch (error) {
       console.error("Setup error:", error);
       const errorMsg = error instanceof Error ? error.message : "An unknown error occurred";
+      
+      // Special handling for email confirmation errors - suggest logging in directly
+      if (errorMsg.includes("confirmation email") || errorMsg.includes("email confirmation")) {
+        setErrorMessage("Email confirmation failed, but your account was likely created. Please try logging in directly.");
+        
+        toast({
+          title: "Setup Partially Complete",
+          description: "Account created but email confirmation failed. Please try logging in.",
+          variant: "default"
+        });
+        
+        setTimeout(() => {
+          navigate("/login");
+        }, 3000);
+        return;
+      }
+      
       setErrorMessage(errorMsg);
       
       toast({

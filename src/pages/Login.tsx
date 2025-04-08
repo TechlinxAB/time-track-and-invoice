@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/UserContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,15 +45,38 @@ const Login = () => {
             setIsFirstTime(false);
             setIsFirstTimeCheck(false);
             return;
+          } else {
+            console.warn("Error checking profiles table:", profileError);
+            // If error checking profiles, try using regular queries
+            try {
+              const { data: profileData, error: listError } = await supabase
+                .from('profiles')
+                .select('id')
+                .limit(1);
+                
+              if (!listError) {
+                if (!profileData || profileData.length === 0) {
+                  console.log("First time setup needed - no profiles found via list");
+                  setIsFirstTime(true);
+                  navigate("/setup");
+                  return;
+                }
+                
+                // If we have at least one profile, no need for first-time setup
+                console.log("At least one profile found, no first-time setup needed");
+                setIsFirstTime(false);
+                setIsFirstTimeCheck(false);
+                return;
+              }
+            } catch (err) {
+              console.warn("Error listing profiles:", err);
+            }
           }
-          
-          console.warn("Error checking profiles table:", profileError);
-          // If error checking profiles, try the RPC
         } catch (err) {
           console.warn("Error checking profiles:", err);
         }
         
-        // Fall back to RPC if needed
+        // Fall back to RPC if needed - this is now a last resort
         try {
           const { data, error } = await supabase.rpc('get_user_count');
           
@@ -66,15 +89,22 @@ const Login = () => {
           
           if (!error) {
             console.log(`User count: ${data}, no first-time setup needed`);
+            setIsFirstTime(false);
+            setIsFirstTimeCheck(false);
+            return;
           }
         } catch (err) {
           console.warn("Error using get_user_count RPC:", err);
         }
         
-        // If we get here, assume not first time
+        // If we get here with no conclusive result, we need to make a decision
+        // Default to NOT first time for safety - better to show login than lose access
+        console.log("Inconclusive checks - defaulting to not first time setup");
         setIsFirstTime(false);
+        
       } catch (e) {
         console.error("Error checking first time setup:", e);
+        setIsFirstTime(false);
       } finally {
         setIsFirstTimeCheck(false);
       }

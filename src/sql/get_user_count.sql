@@ -1,5 +1,6 @@
 
 -- Function to safely get the count of users in auth.users table
+-- This version has NO PARAMETERS to match the function signature the code is using
 CREATE OR REPLACE FUNCTION public.get_user_count()
 RETURNS INTEGER AS $$
 DECLARE
@@ -23,4 +24,9 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Set proper ownership and permissions for the function
+ALTER FUNCTION public.get_user_count() OWNER TO postgres;
+GRANT EXECUTE ON FUNCTION public.get_user_count() TO anon;
+GRANT EXECUTE ON FUNCTION public.get_user_count() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_count() TO service_role;
+
 COMMENT ON FUNCTION public.get_user_count() IS 'Counts users in the system, for first-user detection';
