@@ -2,14 +2,10 @@
 -- This trigger makes the first registered user an admin
 CREATE OR REPLACE FUNCTION public.check_first_user()
 RETURNS TRIGGER AS $$
-DECLARE
-  user_count INTEGER;
 BEGIN
-  -- Count existing users 
-  SELECT COUNT(*) INTO user_count FROM public.profiles;
-  
-  -- If this is the first user (count is 0 before insert)
-  IF user_count = 0 THEN
+  -- If this is the first user being inserted into the profiles table
+  -- Supabase has a built-in auth.users table which this trigger checks
+  IF (SELECT COUNT(*) FROM auth.users) <= 1 THEN
     -- Make this user an admin
     NEW.role = 'admin';
     -- Ensure we have full name data

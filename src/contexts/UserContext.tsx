@@ -1,3 +1,4 @@
+
 import { createContext, useState, useEffect, useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -58,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state change:", event);
         setSession(session);
         setUser(session?.user || null);
 
@@ -106,16 +108,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const isFirstUser = async (): Promise<boolean> => {
     try {
-      const { count, error } = await supabase
+      // Check if there are any existing profiles
+      const { count: profileCount, error: profileError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true });
       
-      if (error) {
-        console.error('Error counting profiles:', error);
+      if (profileError) {
+        console.error('Error counting profiles:', profileError);
         return false;
       }
       
-      return count === 0;
+      // Also check auth.users table if possible
+      let userCount = 0;
+      try {
+        const { data, error: userCountError } = await supabase.rpc('get_user_count');
+        if (!userCountError && data !== null) {
+          userCount = data;
+        }
+      } catch (e) {
+        console.log('Could not get auth user count, using profile count only', e);
+      }
+      
+      console.log(`Profile count: ${profileCount}, User count: ${userCount}`);
+      
+      // If either is 0 or 1 (only current user), it's the first user
+      return (profileCount === 0 || userCount <= 1);
     } catch (error) {
       console.error('Error checking if first user:', error);
       return false;
@@ -164,7 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       
       console.log('Created default profile for new user:', data);
       
-      if (firstUser && data.role === 'admin') {
+      if (firstUser) {
         console.log('First user created as admin!');
         toast({
           title: "Welcome, Administrator!",
