@@ -24,13 +24,29 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Function to derive display name from email
   const deriveDisplayNameFromEmail = (email: string): string => {
     try {
-      const emailParts = email.split('@')[0]; // Get the part before @
-      const nameParts = emailParts.split('.'); // Split by dots
+      console.log("Deriving display name from:", email);
+      const emailPrefix = email.split('@')[0]; // Get the part before @
+      
+      // Handle cases with dots or underscores
+      let nameParts: string[] = [];
+      if (emailPrefix.includes('.')) {
+        nameParts = emailPrefix.split('.');
+      } else if (emailPrefix.includes('_')) {
+        nameParts = emailPrefix.split('_');
+      } else if (emailPrefix.includes('-')) {
+        nameParts = emailPrefix.split('-');
+      } else {
+        // If no separator, treat as a single name
+        nameParts = [emailPrefix];
+      }
       
       // Capitalize first letter of each part and join with space
-      return nameParts.map(part => 
+      const displayName = nameParts.map(part => 
         part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
       ).join(' ');
+      
+      console.log("Generated display name:", displayName);
+      return displayName;
     } catch (error) {
       console.error("Error deriving name from email:", error);
       return "User"; // Fallback
@@ -68,46 +84,59 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       console.log("User found, checking profile...");
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userData.user.id)
-        .single();
+      console.log("User ID:", userData.user.id);
+      console.log("User email:", userData.user.email);
+      
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userData.user.id)
+          .single();
 
-      if (profileError) {
-        console.error("Profile error:", profileError);
-        
-        if (profileError.code === 'PGRST116') {
-          console.log("Profile not found, creating default profile...");
-          const displayName = deriveDisplayNameFromEmail(userData.user.email || '');
+        if (profileError) {
+          console.error("Profile error:", profileError);
+          console.error("Profile error code:", profileError.code);
+          console.error("Profile error message:", profileError.message);
           
-          const defaultProfile: Partial<UserProfile> = {
-            id: userData.user.id,
-            email: userData.user.email || '',
-            displayName: displayName,
-            role: 'user',
-          };
-          
-          const { error: createError } = await supabase
-            .from('profiles')
-            .insert(defaultProfile);
+          if (profileError.code === 'PGRST116') {
+            console.log("Profile not found, creating default profile...");
+            const displayName = deriveDisplayNameFromEmail(userData.user.email || '');
             
-          if (createError) {
-            console.error("Error creating profile:", createError);
-            toast.error("Failed to create user profile");
+            const defaultProfile: Partial<UserProfile> = {
+              id: userData.user.id,
+              email: userData.user.email || '',
+              displayName: displayName,
+              role: 'user',
+            };
+            
+            console.log("Creating profile with data:", defaultProfile);
+            
+            const { error: createError } = await supabase
+              .from('profiles')
+              .insert(defaultProfile);
+              
+            if (createError) {
+              console.error("Error creating profile:", createError);
+              console.error("Create error details:", JSON.stringify(createError));
+              toast.error("Failed to create user profile");
+            } else {
+              console.log("Default profile created successfully");
+              setUser(defaultProfile as UserProfile);
+              setRole(defaultProfile.role || 'user');
+              toast.success("Created default profile");
+            }
           } else {
-            console.log("Default profile created successfully");
-            setUser(defaultProfile as UserProfile);
-            setRole(defaultProfile.role || 'user');
-            toast.success("Created default profile");
+            toast.error("Failed to load profile");
           }
-        } else {
-          toast.error("Failed to load profile");
+        } else if (profileData) {
+          console.log("Profile loaded successfully:", profileData);
+          setUser(profileData as UserProfile);
+          setRole(profileData.role || 'user');
         }
-      } else if (profileData) {
-        console.log("Profile loaded successfully:", profileData);
-        setUser(profileData as UserProfile);
-        setRole(profileData.role || 'user');
+      } catch (error) {
+        console.error("Error in profile loading process:", error);
+        toast.error("Unexpected error loading profile");
       }
     } catch (error) {
       console.error("Load profile error:", error);

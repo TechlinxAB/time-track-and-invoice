@@ -16,19 +16,28 @@ const currentProtocol = window.location.protocol;
 let supabaseUrl = directSupabaseUrl;
 console.log('Using direct Supabase URL:', supabaseUrl);
 
+// Check if we have an API key in the environment
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+// If we're in development mode, look for the key in localStorage as fallback
+const localStorageKey = localStorage.getItem('supabase_anon_key');
+const finalSupabaseKey = supabaseKey || localStorageKey || '';
+
+if (!finalSupabaseKey) {
+  console.warn('Supabase Anon Key is missing. Please set your API key in the connection settings.');
+  toast({
+    title: "Supabase API Key Missing",
+    description: "Please configure your API key in the connection settings",
+    variant: "destructive"
+  });
+}
 
 console.log('Environment:', currentDomain === 'localhost' ? 'Development' : 'Production');
 console.log('Page is served via:', currentProtocol);
 console.log('Using Supabase URL:', supabaseUrl);
+console.log('API Key provided:', !!finalSupabaseKey);
 
-if (!supabaseKey) {
-  console.warn(
-    'Supabase Anon Key is missing. Using dummy key for initialization.'
-  );
-}
-
-export const supabase = createClient(supabaseUrl, supabaseKey || 'dummy-key-for-init', {
+export const supabase = createClient(supabaseUrl, finalSupabaseKey || 'dummy-key-for-init', {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -50,7 +59,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey || 'dummy-key-for-
 // Log connection details
 console.log('Supabase client configured with:', {
   url: supabaseUrl,
-  keyProvided: !!supabaseKey,
+  keyProvided: !!finalSupabaseKey,
   protocol: supabaseUrl.split(':')[0],
 });
 
@@ -93,8 +102,8 @@ export const testSupabaseConnection = async () => {
         const response = await fetch(healthCheckUrl, {
           method: 'GET',
           headers: {
-            'apikey': supabaseKey || 'dummy-key-for-init',
-            'Authorization': `Bearer ${supabaseKey || 'dummy-key-for-init'}`,
+            'apikey': finalSupabaseKey || 'dummy-key-for-init',
+            'Authorization': `Bearer ${finalSupabaseKey || 'dummy-key-for-init'}`,
             'Content-Type': 'application/json'
           }
         });
@@ -151,6 +160,7 @@ export const testSupabaseConnection = async () => {
   } catch (err) {
     const isTimeout = err instanceof Error && err.message.includes('timed out');
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    const isMissingKey = errorMessage.includes('401') || errorMessage.includes('Invalid authentication credentials');
     
     console.error(`Supabase connection ${isTimeout ? 'timed out' : 'failed'}:`, errorMessage);
     console.error('Full error object:', err);
@@ -162,8 +172,9 @@ export const testSupabaseConnection = async () => {
       success: false, 
       error: errorMessage, 
       timeout: isTimeout,
-      suggestReverseProxy: !reverseProxyEnabled && !isTimeout,  
-      autoSwitchToDirectUrl: reverseProxyEnabled && !isTimeout
+      suggestReverseProxy: !reverseProxyEnabled && !isTimeout,
+      autoSwitchToDirectUrl: reverseProxyEnabled && !isTimeout,
+      missingApiKey: isMissingKey
     };
   }
 };
@@ -173,15 +184,24 @@ console.log('Testing Supabase connection on startup with URL:', supabaseUrl);
 testSupabaseConnection()
   .then(result => {
     if (!result.success) {
-      let message = '⚠️ Supabase connection failed. Check your configuration:';
-      if (result.timeout) {
-        message += `\n        - Connection timed out after ${CONNECTION_TIMEOUT/1000} seconds`;
-        message += '\n        - Check if Supabase is running and reachable at the configured URL';
+      if (result.missingApiKey) {
+        console.warn('⚠️ Supabase connection failed: Invalid API key or missing API key');
+        toast({
+          title: "API Key Required",
+          description: "Please enter your Supabase API key in the connection settings",
+          variant: "destructive"
+        });
       } else {
-        message += `\n        - Make sure your Supabase instance is running at ${supabaseUrl}`;
-        message += '\n        - Check if the database table \'fortnox_credentials\' exists';
+        let message = '⚠️ Supabase connection failed. Check your configuration:';
+        if (result.timeout) {
+          message += `\n        - Connection timed out after ${CONNECTION_TIMEOUT/1000} seconds`;
+          message += '\n        - Check if Supabase is running and reachable at the configured URL';
+        } else {
+          message += `\n        - Make sure your Supabase instance is running at ${supabaseUrl}`;
+          message += '\n        - Check if the database table \'profiles\' exists';
+        }
+        console.warn(message);
       }
-      console.warn(message);
     } else {
       console.log(`Supabase connection successful using path: ${result.path}`);
       // Toast success message
@@ -193,11 +213,18 @@ testSupabaseConnection()
     }
   });
 
+// Save API key to localStorage
+export const saveApiKey = (key: string) => {
+  localStorage.setItem('supabase_anon_key', key);
+  window.location.reload();
+};
+
 // Simplified connection details function
 export const getConnectionDetails = () => {
   const reverseProxy = localStorage.getItem('use_reverse_proxy') !== 'false';
   const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
   const usingProxy = supabaseUrl.includes(window.location.hostname);
+  const apiKey = finalSupabaseKey;
   
   return {
     url: supabaseUrl,
@@ -209,6 +236,9 @@ export const getConnectionDetails = () => {
     usingProxy: usingProxy,
     reverseProxy: reverseProxy,
     reverseProxyPath: reverseProxyPath,
-    nginxPath: '/var/log/nginx/freelancer-crm-error.log'
+    apiKeyConfigured: !!apiKey,
+    nginx: {
+      path: '/var/log/nginx/freelancer-crm-error.log'
+    }
   };
 };

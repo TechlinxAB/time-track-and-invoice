@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
+import { supabase, saveApiKey } from "@/lib/supabase";
 
 const Login = () => {
   const { user, signIn, signUp } = useAuth();
@@ -16,6 +17,7 @@ const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [apiKey, setApiKey] = useState(localStorage.getItem('supabase_anon_key') || "");
   const [connectionInfo, setConnectionInfo] = useState<{
     url: string; 
     protocol: string;
@@ -23,6 +25,7 @@ const Login = () => {
     usingProxy: boolean;
     reverseProxy: boolean;
     reverseProxyPath?: string | null;
+    apiKeyConfigured: boolean;
   }>(() => {
     const supabaseConfig = supabase.constructor as any;
     const url = supabaseConfig?.supabaseUrl || "unknown";
@@ -30,6 +33,7 @@ const Login = () => {
     const usingProxy = url.includes(window.location.hostname);
     const reverseProxy = localStorage.getItem('use_reverse_proxy') !== 'false';
     const reverseProxyPath = localStorage.getItem('reverse_proxy_path') || '/supabase';
+    const apiKeyConfigured = !!localStorage.getItem('supabase_anon_key');
     
     return { 
       url, 
@@ -37,7 +41,8 @@ const Login = () => {
       pageProtocol: window.location.protocol,
       usingProxy,
       reverseProxy,
-      reverseProxyPath
+      reverseProxyPath,
+      apiKeyConfigured
     };
   });
 
@@ -64,6 +69,8 @@ const Login = () => {
       console.log("Using Supabase URL:", connectionInfo.url);
       console.log("Using Proxy:", connectionInfo.usingProxy ? "Yes" : "No");
       console.log("Using Reverse Proxy:", connectionInfo.reverseProxy ? "Yes" : "No");
+      console.log("API Key Configured:", connectionInfo.apiKeyConfigured ? "Yes" : "No");
+      
       if (connectionInfo.reverseProxy) {
         console.log("Reverse Proxy Path:", connectionInfo.reverseProxyPath);
       }
@@ -142,6 +149,23 @@ const Login = () => {
       setTimeout(() => window.location.reload(), 1000);
     }
   };
+  
+  const handleSaveApiKey = () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "API key cannot be empty",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    saveApiKey(apiKey);
+    toast({
+      title: "API Key Saved",
+      description: "Supabase API key has been saved. Reloading...",
+    });
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/20 p-4">
@@ -205,8 +229,29 @@ const Login = () => {
               <p><strong>Using Proxy:</strong> {connectionInfo.usingProxy ? "Yes" : "No"}</p>
               <p><strong>Using Reverse Proxy:</strong> {connectionInfo.reverseProxy ? "Yes" : "No"}</p>
               {connectionInfo.reverseProxy && <p><strong>Reverse Proxy Path:</strong> {connectionInfo.reverseProxyPath}</p>}
+              <p><strong>API Key Configured:</strong> {connectionInfo.apiKeyConfigured ? "Yes" : "No"}</p>
               
-              <div className="flex flex-col space-y-2 mt-2">                
+              <div className="mt-3 space-y-2">
+                <Label htmlFor="apiKey" className="font-semibold">Supabase API Key</Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Enter your Supabase anon key"
+                  className="text-xs h-8"
+                />
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  className="text-xs w-full mt-1"
+                  onClick={handleSaveApiKey}
+                >
+                  Save API Key
+                </Button>
+              </div>
+              
+              <div className="flex flex-col space-y-2 mt-3">                
                 <Button 
                   variant={connectionInfo.reverseProxy ? "default" : "outline"} 
                   size="sm"

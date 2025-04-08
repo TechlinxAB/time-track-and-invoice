@@ -44,6 +44,10 @@ export interface Client {
   organizationNumber?: string;
   customerNumber?: string;
   notes?: string;
+  // Add the missing fields for Swedish invoice requirements
+  invoiceAddress?: string;
+  paymentTerms?: string;
+  deliveryTerms?: string;
 }
 
 export interface TimeEntry {
@@ -116,4 +120,10 @@ export interface TimeInputProps {
 export interface SelectOption {
   value: string;
   label: string;
+}
+
+// Add DateRange interface for app context and invoicing
+export interface DateRange {
+  from: Date | undefined;
+  to: Date | undefined;
 }
