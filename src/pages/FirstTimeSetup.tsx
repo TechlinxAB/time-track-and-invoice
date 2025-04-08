@@ -80,7 +80,7 @@ const FirstTimeSetup = () => {
         toast({
           title: "Setup Complete!",
           description: "Administrator account created successfully. You can now log in.",
-          variant: "success"
+          variant: "default" // Changed from "success" to "default"
         });
         
         setIsCompleted(true);
