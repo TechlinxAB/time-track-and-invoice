@@ -9,6 +9,7 @@ import { ClientForm } from "@/components/clients/ClientForm";
 import {
   Dialog,
   DialogContent,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { createNewClient, updateClient, deleteClient } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -110,7 +111,10 @@ const Clients = () => {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[525px]">
+        <DialogContent className="sm:max-w-[525px] max-h-[90vh] overflow-y-auto">
+          <DialogDescription className="sr-only">
+            {editClient ? "Edit client details" : "Add a new client"}
+          </DialogDescription>
           <ClientForm
             client={editClient}
             onSubmit={handleSubmit}

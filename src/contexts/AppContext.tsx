@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   Client, 
@@ -14,7 +15,10 @@ import {
   fetchActivities,
   fetchTimeEntries,
   getTimeEntriesByDate,
-  getTimeEntriesByDateRange
+  getTimeEntriesByDateRange,
+  createTimeEntry,
+  updateTimeEntry as updateTimeEntryApi,
+  deleteTimeEntry as deleteTimeEntryApi
 } from '@/lib/supabase';
 
 interface AppContextType {
@@ -37,9 +41,9 @@ interface AppContextType {
   getClientById: (id: string) => Client | undefined;
   getActivityById: (id: string) => Activity | undefined;
   getTimeEntriesForDate: (date: string) => TimeEntry[];
-  addTimeEntry: (entry: Omit<TimeEntry, "id">) => void;
-  updateTimeEntry: (entry: TimeEntry) => void;
-  deleteTimeEntry: (id: string) => void;
+  addTimeEntry: (entry: Omit<TimeEntry, "id">) => Promise<void>;
+  updateTimeEntry: (entry: TimeEntry) => Promise<void>;
+  deleteTimeEntry: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -88,7 +92,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loadTimeEntriesByDate = async (date: string) => {
     const timeEntriesData = await getTimeEntriesByDate(date);
-    setTimeEntries(timeEntriesData);
+    // Merge with existing entries from other dates
+    setTimeEntries(prevEntries => {
+      const filteredPrevEntries = prevEntries.filter(entry => entry.date !== date);
+      return [...filteredPrevEntries, ...timeEntriesData];
+    });
   };
 
   const loadTimeEntriesByDateRange = async (startDate: string, endDate: string) => {
@@ -113,24 +121,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return timeEntries.filter(entry => entry.date === date);
   };
 
-  const addTimeEntry = (entry: Omit<TimeEntry, "id">) => {
-    // In a real application, this would call an API
-    // For now, we'll just add it locally with a generated ID
-    const newEntry: TimeEntry = {
-      ...entry,
-      id: `temp-${Date.now()}`
-    };
-    setTimeEntries(prev => [...prev, newEntry]);
+  const addTimeEntry = async (entry: Omit<TimeEntry, "id">) => {
+    try {
+      // Call API to create the entry
+      const newEntry = await createTimeEntry(entry);
+      
+      if (newEntry) {
+        // Update local state with the new entry
+        setTimeEntries(prev => [...prev, newEntry]);
+        return;
+      }
+    } catch (error) {
+      console.error("Error adding time entry:", error);
+      // Fallback to local state management if API fails
+      const tempEntry: TimeEntry = {
+        ...entry,
+        id: `temp-${Date.now()}`
+      };
+      setTimeEntries(prev => [...prev, tempEntry]);
+    }
   };
 
-  const updateTimeEntry = (entry: TimeEntry) => {
-    setTimeEntries(prev => 
-      prev.map(e => e.id === entry.id ? entry : e)
-    );
+  const updateTimeEntry = async (entry: TimeEntry) => {
+    try {
+      // Call API to update the entry
+      await updateTimeEntryApi(entry);
+      
+      // Update local state
+      setTimeEntries(prev => 
+        prev.map(e => e.id === entry.id ? entry : e)
+      );
+    } catch (error) {
+      console.error("Error updating time entry:", error);
+    }
   };
 
-  const deleteTimeEntry = (id: string) => {
-    setTimeEntries(prev => prev.filter(entry => entry.id !== id));
+  const deleteTimeEntry = async (id: string) => {
+    try {
+      // Call API to delete the entry
+      await deleteTimeEntryApi(id);
+      
+      // Update local state
+      setTimeEntries(prev => prev.filter(entry => entry.id !== id));
+    } catch (error) {
+      console.error("Error deleting time entry:", error);
+    }
   };
 
   useEffect(() => {
