@@ -1,219 +1,307 @@
-import { useState } from "react";
-import { useAppContext } from "@/contexts/AppContext";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, MoreHorizontal } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { mockActivities } from "@/data/mockData";
 import { Activity } from "@/types";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { formatCurrency } from "@/lib/date-utils";
+import { Switch } from "@/components/ui/switch";
+import { Plus } from "lucide-react";
 
 const Activities = () => {
-  const {
-    activities,
-    addActivity,
-    updateActivity,
-    deleteActivity
-  } = useAppContext();
+  const [activities, setActivities] = useState<Activity[]>(mockActivities);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
-  const [formData, setFormData] = useState({
+  const [activeTab, setActiveTab] = useState("services");
+  
+  // Form state for new activity
+  const [newActivity, setNewActivity] = useState<Partial<Activity>>({
     name: "",
     hourlyRate: 0,
     isFixedPrice: false,
     fixedPrice: 0,
-    accountNumber: "",
-    type: "service" as const,
-    vatRate: 0,
-    articleNumber: ""
+    type: "service" as const, // Default type
   });
 
-  const handleOpenDialog = (activity?: Activity) => {
-    if (activity) {
-      setEditingActivity(activity);
-      setFormData({
-        name: activity.name,
-        hourlyRate: activity.hourlyRate,
-        isFixedPrice: activity.isFixedPrice,
-        fixedPrice: activity.fixedPrice || 0,
-        accountNumber: activity.accountNumber || "",
-        type: activity.type,
-        vatRate: activity.vatRate || 0,
-        articleNumber: activity.articleNumber || ""
+  // Handle form changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    
+    if (type === "checkbox") {
+      setNewActivity({
+        ...newActivity,
+        [name]: (e.target as HTMLInputElement).checked,
+      });
+    } else if (type === "number") {
+      setNewActivity({
+        ...newActivity,
+        [name]: parseFloat(value) || 0,
       });
     } else {
-      setEditingActivity(null);
-      setFormData({
-        name: "",
-        hourlyRate: 0,
-        isFixedPrice: false,
-        fixedPrice: 0,
-        accountNumber: "",
-        type: "service",
-        vatRate: 0,
-        articleNumber: ""
+      setNewActivity({
+        ...newActivity,
+        [name]: value,
       });
     }
-    setDialogOpen(true);
+  };
+  
+  const handleTypeChange = (type: "service" | "product") => {
+    setNewActivity({
+      ...newActivity,
+      type,
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingActivity) {
-      updateActivity({
-        ...editingActivity,
-        ...formData
-      });
-    } else {
-      addActivity(formData);
-    }
+    
+    const newActivityItem: Activity = {
+      id: `act-${Date.now()}`,
+      name: newActivity.name || "Untitled Activity",
+      hourlyRate: newActivity.hourlyRate || 0,
+      isFixedPrice: newActivity.isFixedPrice || false,
+      fixedPrice: newActivity.fixedPrice || 0,
+      type: newActivity.type || "service",
+    };
+    
+    setActivities([...activities, newActivityItem]);
+    setNewActivity({
+      name: "",
+      hourlyRate: 0,
+      isFixedPrice: false,
+      fixedPrice: 0,
+      type: "service",
+    });
     setDialogOpen(false);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const {
-      name,
-      value,
-      type
-    } = e.target;
-    if (type === "number") {
-      setFormData(prev => ({
-        ...prev,
-        [name]: parseFloat(value)
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-  };
+  // Filter activities based on active tab
+  const filteredActivities = activities.filter(activity => 
+    (activeTab === "services" && activity.type === "service") || 
+    (activeTab === "products" && activity.type === "product")
+  );
 
-  const handleSwitchChange = (checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      isFixedPrice: checked
-    }));
-  };
-
-  const handleDelete = (id: string) => {
-    deleteActivity(id);
-  };
-
-  return <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Activities</h1>
-        <Button onClick={() => handleOpenDialog()} className="bg-success hover:bg-success/90 text-success-foreground">
-          <Plus className="mr-2 h-4 w-4" /> Add Activity
-        </Button>
+  return (
+    <div className="container mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Activities & Products</h1>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-success hover:bg-success/90">
+              <Plus className="mr-2 h-4 w-4" /> Add New
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New Activity or Product</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="type">Type</Label>
+                <div className="flex space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="service"
+                      name="type"
+                      checked={newActivity.type === "service"}
+                      onChange={() => handleTypeChange("service")}
+                      className="rounded text-success focus:ring-success"
+                    />
+                    <Label htmlFor="service">Service</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="product"
+                      name="type"
+                      checked={newActivity.type === "product"}
+                      onChange={() => handleTypeChange("product")}
+                      className="rounded text-success focus:ring-success"
+                    />
+                    <Label htmlFor="product">Product</Label>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={newActivity.name}
+                  onChange={handleChange}
+                  placeholder="Activity name"
+                  required
+                />
+              </div>
+              
+              {newActivity.type === "service" && (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="isFixedPrice"
+                      name="isFixedPrice"
+                      checked={newActivity.isFixedPrice}
+                      onCheckedChange={(checked) => 
+                        setNewActivity({...newActivity, isFixedPrice: checked})
+                      }
+                    />
+                    <Label htmlFor="isFixedPrice">Fixed Price</Label>
+                  </div>
+                  
+                  {newActivity.isFixedPrice ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="fixedPrice">Fixed Price (SEK)</Label>
+                      <Input
+                        id="fixedPrice"
+                        name="fixedPrice"
+                        type="number"
+                        value={newActivity.fixedPrice}
+                        onChange={handleChange}
+                        placeholder="0"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="hourlyRate">Hourly Rate (SEK)</Label>
+                      <Input
+                        id="hourlyRate"
+                        name="hourlyRate"
+                        type="number"
+                        value={newActivity.hourlyRate}
+                        onChange={handleChange}
+                        placeholder="0"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {newActivity.type === "product" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fixedPrice">Price per Unit (SEK)</Label>
+                    <Input
+                      id="fixedPrice"
+                      name="fixedPrice"
+                      type="number"
+                      value={newActivity.fixedPrice}
+                      onChange={handleChange}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="accountNumber">Account Number</Label>
+                <Input
+                  id="accountNumber"
+                  name="accountNumber"
+                  value={newActivity.accountNumber || ""}
+                  onChange={handleChange}
+                  placeholder="3000"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="vatPercentage">VAT %</Label>
+                <Input
+                  id="vatPercentage"
+                  name="vatPercentage"
+                  type="number"
+                  value={newActivity.vatPercentage || 25}
+                  onChange={handleChange}
+                  placeholder="25"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="articleNumber">Article Number</Label>
+                <Input
+                  id="articleNumber"
+                  name="articleNumber"
+                  value={newActivity.articleNumber || ""}
+                  onChange={handleChange}
+                  placeholder="ABC123"
+                />
+              </div>
+              
+              <Button type="submit" className="w-full bg-success hover:bg-success/90">
+                Add Activity
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
       
       <Card>
-        <CardHeader>
-          <CardTitle>Activities</CardTitle>
-          <CardDescription>Manage your available activities and their rates</CardDescription>
+        <CardHeader className="pb-2">
+          <Tabs defaultValue="services" 
+            value={activeTab} 
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <TabsList className="grid grid-cols-2 w-[400px]">
+              <TabsTrigger value="services">Services</TabsTrigger>
+              <TabsTrigger value="products">Products</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </CardHeader>
         <CardContent>
-          {activities.length === 0 ? <div className="text-center py-12">
-              <p className="text-muted-foreground">You haven't added any activities yet</p>
-              <Button variant="link" className="mt-2 text-success" onClick={() => handleOpenDialog()}>
-                Add your first activity
-              </Button>
-            </div> : <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Rate Type</TableHead>
-                  <TableHead>Rate</TableHead>
-                  <TableHead>Account Number</TableHead>
-                  <TableHead className="w-[100px]">Activities &amp; items list</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activities.map(activity => <TableRow key={activity.id}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">Account</TableHead>
+                <TableHead className="text-right">VAT %</TableHead>
+                <TableHead className="text-right">Article #</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredActivities.length > 0 ? (
+                filteredActivities.map((activity) => (
+                  <TableRow key={activity.id}>
                     <TableCell className="font-medium">{activity.name}</TableCell>
-                    <TableCell>{activity.isFixedPrice ? 'Fixed Price' : 'Hourly'}</TableCell>
                     <TableCell>
-                      {activity.isFixedPrice ? formatCurrency(activity.fixedPrice || 0) : `${formatCurrency(activity.hourlyRate)}/hour`}
+                      {activity.type === "service" ? "Service" : "Product"}
                     </TableCell>
-                    <TableCell>{activity.accountNumber || "-"}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleOpenDialog(activity)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            <span>Edit</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(activity.id)} className="text-destructive focus:text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Delete</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <TableCell className="text-right">
+                      {activity.isFixedPrice
+                        ? `${activity.fixedPrice} SEK`
+                        : `${activity.hourlyRate} SEK/h`}
                     </TableCell>
-                  </TableRow>)}
-              </TableBody>
-            </Table>}
+                    <TableCell className="text-right">
+                      {activity.accountNumber || "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {activity.vatPercentage || 25}%
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {activity.articleNumber || "-"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No {activeTab === "services" ? "services" : "products"} found. Add your first one!
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
-      
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{editingActivity ? "Edit Activity" : "Add Activity"}</DialogTitle>
-            <DialogDescription>
-              {editingActivity ? "Update activity details" : "Add a new activity to your workspace"}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Activity Name *</Label>
-              <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="accountNumber">Account Number (Kontonummer)</Label>
-              <Input id="accountNumber" name="accountNumber" value={formData.accountNumber} onChange={handleChange} placeholder="e.g. 3000" />
-              <p className="text-xs text-muted-foreground">
-                Required for Fortnox integration. Usually 4 digits.
-              </p>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Switch id="price-type" checked={formData.isFixedPrice} onCheckedChange={handleSwitchChange} />
-              <Label htmlFor="price-type">Fixed Price</Label>
-            </div>
-            
-            {formData.isFixedPrice ? <div className="space-y-2">
-                <Label htmlFor="fixedPrice">Fixed Price (SEK) *</Label>
-                <Input id="fixedPrice" name="fixedPrice" type="number" value={formData.fixedPrice} onChange={handleChange} min="0" step="1" required={formData.isFixedPrice} />
-              </div> : <div className="space-y-2">
-                <Label htmlFor="hourlyRate">Hourly Rate (SEK) *</Label>
-                <Input id="hourlyRate" name="hourlyRate" type="number" value={formData.hourlyRate} onChange={handleChange} min="0" step="1" required={!formData.isFixedPrice} />
-              </div>}
-            
-            <DialogFooter className="pt-4">
-              <Button variant="outline" type="button" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" className="bg-success hover:bg-success/90 text-success-foreground">
-                {editingActivity ? "Save Changes" : "Add Activity"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>;
+    </div>
+  );
 };
 
 export default Activities;

@@ -1,20 +1,22 @@
 
-export interface Client {
+import { ReactNode } from "react";
+
+export type UserRole = "admin" | "manager" | "user";
+
+export interface UserProfile {
   id: string;
-  name: string;
-  email?: string;
-  company?: string;
-  phone?: string;
-  organizationNumber?: string; // Swedish company ID
-  customerNumber?: string; // Fortnox customer number
-  address?: string;
-  city?: string;
-  postalCode?: string;
-  country?: string;
-  invoiceAddress?: string; // Can be different from regular address
-  paymentTerms?: number; // Days until payment is due
-  deliveryTerms?: string;
+  email: string;
+  displayName: string;
+  avatar?: string;
+  role: UserRole;
+  created_at?: string;
+  updated_at?: string;
+  preferences?: Record<string, any>;
+  settings?: Record<string, any>;
 }
+
+export type ActivityType = "service" | "product";
+export type EntryType = "service" | "product";
 
 export interface Activity {
   id: string;
@@ -22,115 +24,96 @@ export interface Activity {
   hourlyRate: number;
   isFixedPrice: boolean;
   fixedPrice?: number;
-  accountNumber?: string; // Swedish booking account number
-  vatRate?: number; // VAT percentage
-  articleNumber?: string; // Fortnox article number
-  type: 'service' | 'product';
+  type: ActivityType;
+  accountNumber?: string;
+  vatPercentage?: number;
+  articleNumber?: string;
 }
 
-export interface Product {
+export interface Client {
   id: string;
   name: string;
-  description?: string;
-  price: number;
-  accountNumber?: string; // For Swedish Fortnox kontnummer
-  unit?: string; // e.g., pcs, hours, etc.
-  sku?: string; // Stock Keeping Unit
-  inStock?: number;
-  vatRate?: number; // VAT percentage
-  articleNumber?: string; // Fortnox article number
+  company: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  vatNumber?: string;
+  organizationNumber?: string;
+  customerNumber?: string;
+  notes?: string;
 }
 
 export interface TimeEntry {
   id: string;
   clientId: string;
   activityId: string;
-  productId?: string; // For product entries instead of activities
-  date: string; // ISO string
-  startTime: string; // HH:MM format
-  endTime: string; // HH:MM format
-  description: string;
-  duration: number; // in minutes
-  quantity?: number; // For product entries
+  date: string;
+  startTime: string;
+  endTime?: string;
+  duration: number;
+  description?: string;
   billable: boolean;
   invoiced: boolean;
-  entryType: 'service' | 'product';
+  entryType: EntryType;
+  quantity?: number;
+  unitPrice?: number;
 }
 
 export interface Invoice {
   id: string;
   clientId: string;
-  number: string;
-  issueDate: string; // ISO string
-  dueDate: string; // ISO string
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
+  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   items: InvoiceItem[];
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
-  totalAmount: number;
-  vatAmount?: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  notes?: string;
+  termsAndConditions?: string;
 }
 
 export interface InvoiceItem {
   id: string;
-  timeEntryId?: string;
-  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
+  taxRate: number;
   amount: number;
-  vatRate?: number;
-  accountNumber?: string;
-  articleNumber?: string;
+  timeEntryId?: string;
+  activityId?: string;
 }
-
-export type DateRange = {
-  from: Date | undefined;
-  to?: Date | undefined;
-};
 
 export interface FortnoxCredentials {
-  clientId: string;
-  clientSecret: string;
-  accessToken?: string;
-  refreshToken?: string;
-  connectionStatus?: 'connected' | 'disconnected' | 'pending';
+  accessToken: string;
+  refreshToken: string;
+  scope: string;
+  expiresAt: number;
 }
 
-export interface FortnoxInvoice {
-  client: Client | undefined;
-  dateRange: DateRange;
-  entries: TimeEntry[];
-  notes: string;
-  totalAmount: number;
+export interface FortnoxAuthResponse {
+  access_token: string;
+  refresh_token: string;
+  scope: string;
+  expires_in: number;
 }
 
-export interface FortnoxApiResponse {
-  success: boolean;
-  error?: string;
-  data?: any;
+export interface TimeInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  name?: string;
+  id?: string;
+  className?: string;
+  required?: boolean;
+  placeholder?: string;
+  disabled?: boolean;
 }
 
-export interface UserSettings {
-  theme?: 'light' | 'dark' | 'system';
-  primaryColor?: string;
-  secondaryColor?: string;
-  logo?: string;
-  companyName?: string;
-  companyEmail?: string;
-  companyPhone?: string;
-  companyAddress?: string;
-  notifications?: {
-    email?: boolean;
-    app?: boolean;
-  };
-}
-
-export type UserRole = 'admin' | 'manager' | 'user';
-
-export interface UserProfile {
-  id: string;
-  email: string;
-  displayName: string;
-  role: UserRole;
-  avatar?: string;
-  settings?: UserSettings;
+export interface SelectOption {
+  value: string;
+  label: string;
 }

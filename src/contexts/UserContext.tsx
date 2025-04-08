@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -20,9 +21,26 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [role, setRole] = useState<UserRole>("user");
   const [isLoading, setIsLoading] = useState(true);
 
+  // Function to derive display name from email
+  const deriveDisplayNameFromEmail = (email: string): string => {
+    try {
+      const emailParts = email.split('@')[0]; // Get the part before @
+      const nameParts = emailParts.split('.'); // Split by dots
+      
+      // Capitalize first letter of each part and join with space
+      return nameParts.map(part => 
+        part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+      ).join(' ');
+    } catch (error) {
+      console.error("Error deriving name from email:", error);
+      return "User"; // Fallback
+    }
+  };
+
   const loadProfile = async () => {
     try {
       setIsLoading(true);
+      console.log("Starting profile load...");
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
@@ -33,6 +51,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (!sessionData.session) {
+        console.log("No active session found");
         setUser(null);
         setRole("user");
         setIsLoading(false);
@@ -48,6 +67,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
+      console.log("User found, checking profile...");
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -58,10 +78,13 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error("Profile error:", profileError);
         
         if (profileError.code === 'PGRST116') {
+          console.log("Profile not found, creating default profile...");
+          const displayName = deriveDisplayNameFromEmail(userData.user.email || '');
+          
           const defaultProfile: Partial<UserProfile> = {
             id: userData.user.id,
             email: userData.user.email || '',
-            displayName: userData.user.email?.split('@')[0] || 'User',
+            displayName: displayName,
             role: 'user',
           };
           
@@ -73,6 +96,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             console.error("Error creating profile:", createError);
             toast.error("Failed to create user profile");
           } else {
+            console.log("Default profile created successfully");
             setUser(defaultProfile as UserProfile);
             setRole(defaultProfile.role || 'user');
             toast.success("Created default profile");
@@ -81,6 +105,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           toast.error("Failed to load profile");
         }
       } else if (profileData) {
+        console.log("Profile loaded successfully:", profileData);
         setUser(profileData as UserProfile);
         setRole(profileData.role || 'user');
       }
@@ -149,6 +174,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadProfile();
     
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
+      console.log("Auth state change:", event);
       if (event === 'SIGNED_IN') {
         await loadProfile();
       } else if (event === 'SIGNED_OUT') {
