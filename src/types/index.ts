@@ -146,3 +146,70 @@ export interface ConnectionDetails {
   apiKeyConfigured: boolean;
 }
 
+// Database schema interfaces - used for Supabase responses
+export interface DbProfile {
+  id: string;
+  display_name: string;
+  avatar?: string;
+  role: UserRole;
+  created_at?: string;
+  updated_at?: string;
+  preferences?: Record<string, any>;
+  settings?: Record<string, any>;
+}
+
+export interface DbClient {
+  id: string;
+  user_id: string;
+  name: string;
+  company: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  postal_code?: string;
+  city?: string;
+  country?: string;
+  vat_number?: string;
+  organization_number?: string;
+  customer_number?: string;
+  notes?: string;
+  invoice_address?: string;
+  payment_terms?: string;
+  delivery_terms?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DbActivity {
+  id: string;
+  user_id: string;
+  name: string;
+  hourly_rate: number;
+  is_fixed_price: boolean;
+  fixed_price?: number;
+  type: ActivityType;
+  account_number?: string;
+  vat_percentage?: number;
+  article_number?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DbTimeEntry {
+  id: string;
+  user_id: string;
+  client_id: string;
+  activity_id: string;
+  date: string;
+  start_time: string;
+  end_time?: string;
+  duration: number;
+  description?: string;
+  billable: boolean;
+  invoiced: boolean;
+  entry_type: EntryType;
+  quantity?: number;
+  unit_price?: number;
+  created_at?: string;
+  updated_at?: string;
+}
