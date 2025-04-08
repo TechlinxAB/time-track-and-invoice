@@ -20,6 +20,8 @@ import {
   updateTimeEntry as updateTimeEntryApi,
   deleteTimeEntry as deleteTimeEntryApi
 } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext'; // Import Auth context
+import { toast } from 'sonner';
 
 interface AppContextType {
   clients: Client[];
@@ -49,6 +51,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth(); // Get authenticated user
   const [clients, setClients] = useState<Client[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -57,11 +60,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const loadClients = async () => {
+    if (!user) {
+      console.log("No authenticated user, skipping client load");
+      return;
+    }
+    
+    console.log("Loading clients for user:", user.id);
     const clientsData = await fetchClients();
+    console.log(`Loaded ${clientsData.length} clients`);
     setClients(clientsData);
   };
 
   const addClient = async (client: Omit<Client, "id">) => {
+    if (!user) {
+      toast.error("You must be logged in to add clients");
+      return;
+    }
+    
     const newClient = await createNewClient(client);
     if (newClient) {
       setClients(prevClients => [...prevClients, newClient]);
@@ -69,6 +84,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateClient = async (client: Client) => {
+    if (!user) {
+      toast.error("You must be logged in to update clients");
+      return;
+    }
+    
     await updateClientApi(client);
     setClients(prevClients =>
       prevClients.map(c => (c.id === client.id ? client : c))
@@ -76,6 +96,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteClient = async (id: string) => {
+    if (!user) {
+      toast.error("You must be logged in to delete clients");
+      return;
+    }
+    
     await deleteClientApi(id);
     setClients(prevClients => prevClients.filter(client => client.id !== id));
   };
@@ -184,11 +209,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   useEffect(() => {
-    loadClients();
-    loadActivities();
-    loadTimeEntries();
-    loadInvoices();
-  }, []);
+    // Only load data when user is authenticated
+    if (user) {
+      console.log("User authenticated, loading initial data");
+      loadClients();
+      loadActivities();
+      loadTimeEntries();
+      loadInvoices();
+    } else {
+      console.log("No user authenticated, clearing data");
+      setClients([]);
+      setActivities([]);
+      setTimeEntries([]);
+      setInvoices([]);
+    }
+  }, [user]); // Re-run when user changes (login/logout)
 
   const value: AppContextType = {
     clients,

@@ -181,9 +181,25 @@ export const updateUserProfile = async (profile: Partial<UserProfile>): Promise<
 
 // CRUD functions for clients
 export const fetchClients = async (): Promise<Client[]> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to view clients`,
+      variant: "destructive" 
+    });
+    return [];
+  }
+  
+  console.log("Fetching clients for user:", userData.user.id);
+  
   const { data, error } = await supabase
     .from('clients')
     .select('*')
+    .eq('user_id', userData.user.id)  // Filter by the current user's ID
     .order('name', { ascending: true });
   
   if (error) {
@@ -195,6 +211,8 @@ export const fetchClients = async (): Promise<Client[]> => {
     });
     return [];
   }
+  
+  console.log(`Retrieved ${data?.length || 0} clients`);
   
   return data.map(client => ({
     id: client.id,
@@ -218,9 +236,25 @@ export const fetchClients = async (): Promise<Client[]> => {
 
 // Renamed from createClient to createNewClient to avoid naming conflict
 export const createNewClient = async (client: Omit<Client, "id">): Promise<Client | null> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to create clients`,
+      variant: "destructive" 
+    });
+    return null;
+  }
+  
+  console.log("Creating client for user:", userData.user.id);
+  
   const { data, error } = await supabase
     .from('clients')
     .insert({
+      user_id: userData.user.id,  // Set the user_id explicitly
       name: client.name,
       company: client.company,
       email: client.email,
@@ -242,6 +276,7 @@ export const createNewClient = async (client: Omit<Client, "id">): Promise<Clien
   
   if (error) {
     console.error('Error creating client:', error.message);
+    console.error('Full error details:', JSON.stringify(error));
     toast({ 
       title: "Error",
       description: `Failed to create client: ${error.message}`,
@@ -271,6 +306,21 @@ export const createNewClient = async (client: Omit<Client, "id">): Promise<Clien
 };
 
 export const updateClient = async (client: Client): Promise<boolean> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to update clients`,
+      variant: "destructive" 
+    });
+    return false;
+  }
+  
+  console.log("Updating client for user:", userData.user.id);
+  
   const { error } = await supabase
     .from('clients')
     .update({
@@ -291,10 +341,12 @@ export const updateClient = async (client: Client): Promise<boolean> => {
       delivery_terms: client.deliveryTerms,
       updated_at: new Date().toISOString()
     })
-    .eq('id', client.id);
+    .eq('id', client.id)
+    .eq('user_id', userData.user.id);  // Ensure we're only updating the user's own clients
   
   if (error) {
     console.error('Error updating client:', error.message);
+    console.error('Full error details:', JSON.stringify(error));
     toast({ 
       title: "Error",
       description: `Failed to update client: ${error.message}`,
@@ -307,11 +359,25 @@ export const updateClient = async (client: Client): Promise<boolean> => {
 };
 
 export const deleteClient = async (id: string): Promise<boolean> => {
+  // Get current user
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !userData?.user) {
+    console.error('Error fetching user:', userError?.message);
+    toast({ 
+      title: "Authentication Error",
+      description: `You must be logged in to delete clients`,
+      variant: "destructive" 
+    });
+    return false;
+  }
+  
   // First, check if the client has any time entries
   const { data: timeEntries } = await supabase
     .from('time_entries')
     .select('id')
     .eq('client_id', id)
+    .eq('user_id', userData.user.id)
     .limit(1);
   
   if (timeEntries && timeEntries.length > 0) {
@@ -326,10 +392,12 @@ export const deleteClient = async (id: string): Promise<boolean> => {
   const { error } = await supabase
     .from('clients')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', userData.user.id);  // Ensure we're only deleting the user's own clients
   
   if (error) {
     console.error('Error deleting client:', error.message);
+    console.error('Full error details:', JSON.stringify(error));
     toast({ 
       title: "Error",
       description: `Failed to delete client: ${error.message}`,

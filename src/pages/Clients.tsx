@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext"; // Add Auth context
 import { Client } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -20,6 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Clients = () => {
   const { clients, loadClients } = useAppContext();
+  const { user } = useAuth(); // Get the current authenticated user
   const [open, setOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -43,8 +45,19 @@ const Clients = () => {
   const handleSubmit = async (formData: Omit<Client, "id">) => {
     setIsSubmitting(true);
     try {
+      // Check if user is authenticated
+      if (!user) {
+        toast.error("You must be logged in to perform this action");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Log authentication details for debugging
+      console.log("Current user:", user.id);
+      
       if (editClient) {
         const updatedClient = { ...editClient, ...formData };
+        console.log("Updating client:", updatedClient);
         const success = await updateClient(updatedClient);
         if (success) {
           toast.success("Client updated successfully");
@@ -54,10 +67,11 @@ const Clients = () => {
           toast.error("Failed to update client");
         }
       } else {
+        console.log("Creating new client with user ID:", user.id);
         const newClient = await createNewClient(formData);
         if (newClient) {
           toast.success("Client added successfully");
-          loadClients();
+          await loadClients();
           setOpen(false);
         } else {
           toast.error("Failed to add client");
@@ -75,6 +89,12 @@ const Clients = () => {
   const handleDeleteClient = async (id: string) => {
     setIsDeleting(true);
     try {
+      if (!user) {
+        toast.error("You must be logged in to perform this action");
+        setIsDeleting(false);
+        return;
+      }
+      
       const success = await deleteClient(id);
       if (success) {
         toast.success("Client deleted successfully");
